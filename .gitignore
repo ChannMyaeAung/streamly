@@ -1,0 +1,23 @@
+# Node Dependencies
+client/streamly-client/node_modules/
+client/streamly-client/dist/
+node_modules/
+dist/
+
+# Go build artifacts
+server/app
+server/bin/
+*.exe
+*.dll
+*.out
+
+# OS files
+.DS_Store
+.vscode/
+
+# Environment files
+client/streamly-client/.env
+server/.env
+.env
+*.env
+
