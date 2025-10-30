@@ -3,9 +3,10 @@ package main
 import (
 	"fmt"
 
-	controller "github.com/ChannMyaeAung/streamly/server/controllers"
 	"github.com/ChannMyaeAung/streamly/server/database"
+	"github.com/ChannMyaeAung/streamly/server/routes"
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
@@ -15,12 +16,15 @@ func main() {
 		c.JSON(200, "Hello, streamly!")
 	})
 
+	err := godotenv.Load(".env")
+	if err != nil {
+		fmt.Println("Error loading .env file")
+	}
+
 	var client *mongo.Client = database.Connect()
 
-	router.GET("/movies", controller.GetMovies(client))
-	router.GET("/movie/:imdb_id", controller.GetMovie(client))
-	router.POST("/addmovie", controller.AddMovie(client))
-	router.POST("/register", controller.RegisterUser(client))
+	routes.SetUpUnProtectedRoutes(router, client)
+	routes.SetUpProtectedRoutes(router, client)
 
 	if err := router.Run(":8080"); err != nil {
 		fmt.Println("Failed to start server:", err)

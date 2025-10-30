@@ -2,10 +2,12 @@ package utils
 
 import (
 	"context"
+	"errors"
 	"os"
 	"time"
 
 	"github.com/ChannMyaeAung/streamly/server/database"
+	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -33,7 +35,7 @@ func GenerateAllTokens(email, firstName, lastName, role, userId string) (string,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    "streamly",
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * 7 * time.Hour)), // 7 days
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)), // 1 day
 		},
 	}
 
@@ -43,7 +45,7 @@ func GenerateAllTokens(email, firstName, lastName, role, userId string) (string,
 		return "", "", err
 	}
 
-	refreshedClaims := &SignedDetails{
+	refreshClaims := &SignedDetails{
 		Email:     email,
 		FirstName: firstName,
 		LastName:  lastName,
@@ -52,11 +54,11 @@ func GenerateAllTokens(email, firstName, lastName, role, userId string) (string,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    "streamly",
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * 7 * time.Hour)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * 7 * time.Hour)), // 7 days
 		},
 	}
-	refreshedToken := jwt.NewWithClaims(jwt.SigningMethodHS256, refreshedClaims)
-	signedRefreshToken, err := refreshedToken.SignedString([]byte(SECRET_REFRESH_KEY))
+	refreshToken := jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims)
+	signedRefreshToken, err := refreshToken.SignedString([]byte(SECRET_REFRESH_KEY))
 	if err != nil {
 		return "", "", err
 	}
@@ -86,4 +88,43 @@ func UpdateAllTokens(userId, token, refreshToken string, client *mongo.Client) (
 		return err
 	}
 	return nil
+}
+
+func GetAccessToken(c *gin.Context) (string, error) {
+	authHeader := c.Request.Header.Get("Authorization")
+	if authHeader == "" {
+		return "", errors.New("authorization header is missing")
+	}
+	tokenString := authHeader[len("Bearer "):]
+
+	if tokenString == "" {
+		return "", errors.New("bearer token is missing")
+	}
+
+	return tokenString, nil
+}
+
+func ValidateToken(tokenString string) (*SignedDetails, error) {
+	// claims collects the decoded JWT payload along with standard RegisteredClaims.
+	claims := &SignedDetails{}
+
+	// Parse the incoming token string and hydrate the claims using the signing key.
+	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+		return []byte(SECRET_KEY), nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Reject tokens that were not signed with HMAC since they cannot be verified by SECRET_KEY.
+	if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+		return nil, err
+	}
+
+	// Ensure the token has not yet expired; prevent replay of stale credentials.
+	if claims.ExpiresAt.Time.Before(time.Now()) {
+		return nil, errors.New("token has expired")
+	}
+	return claims, nil
 }

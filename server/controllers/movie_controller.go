@@ -95,3 +95,31 @@ func AddMovie(client *mongo.Client) gin.HandlerFunc {
 		c.JSON(http.StatusOK, result)
 	}
 }
+
+func AdminReview() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		movieId := c.Param("imdb_id")
+		if movieId == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Movie ID is required"})
+			return
+		}
+
+		var req struct {
+			AdminReview string `json:"admin_review"`
+		}
+
+		var resp struct {
+			RankingName string `json:"ranking_name"`
+			AdminReview string `json:"admin_review"`
+		}
+
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid JSON provided"})
+			return
+		}
+	}
+}
+
+func GetReviewRanking(admin_review string) (string, int, error) {
+
+}
