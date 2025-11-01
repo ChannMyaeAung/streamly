@@ -6,16 +6,19 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/ChannMyaeAung/streamly/server/database"
 	"github.com/ChannMyaeAung/streamly/server/models"
+	"github.com/ChannMyaeAung/streamly/server/utils"
 	"github.com/go-playground/validator/v10"
 	"github.com/joho/godotenv"
 	"github.com/tmc/langchaingo/llms/openai"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	"github.com/gin-gonic/gin"
 )
@@ -106,6 +109,18 @@ func AddMovie(client *mongo.Client) gin.HandlerFunc {
 // Binds the admin review body, invokes GetReviewRanking() to classify the text, and updates MongoDB.
 func AdminReviewUpdate(client *mongo.Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
+
+		role, err := utils.GetRoleFromContext(c)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Role not found in context"})
+			return
+		}
+
+		if role != "admin" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Only admins can update reviews"})
+			return
+		}
+
 		movieId := c.Param("imdb_id")
 		if movieId == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Movie ID is required"})
@@ -255,8 +270,126 @@ func GetRankings(client *mongo.Client, c *gin.Context) ([]models.Ranking, error)
 	return rankings, nil
 }
 
+// GetRecommendedMovies surfaces top-ranked titles that match the signed-in user's favourite genres.
 func GetRecommendedMovies(client *mongo.Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// Auth middleware stores userId on context; without it, we cannot personalize the feed.
+		userId, err := utils.GetUserIdFromContext(c)
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "User ID not found in context"})
+			return
+		}
 
+		// Pull the user's favourited genres; returns names like "Comedy", "Drama".
+		favourite_genres, err := GetUsersFavouriteGenres(userId, client, c)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error occurred while fetching user's favourite genres"})
+			return
+		}
+
+		// Load runtime config so we can respect RECOMMENDED_MOVIE_LIMIT if provided.
+		err = godotenv.Load(".env")
+		if err != nil {
+			log.Println("Error loading .env file")
+		}
+
+		var recommendedMovieLimitVal int64
+
+		// Optional limit controls how many movies the query returns; default is zero (no limit).
+		recommendedMovieLimitStr := os.Getenv("RECOMMENDED_MOVIE_LIMIT")
+		if recommendedMovieLimitStr != "" {
+			recommendedMovieLimitVal, _ = strconv.ParseInt(recommendedMovieLimitStr, 10, 64)
+		}
+
+		findOptions := options.Find()
+
+		// In the database, ranking = {ranking_value: 1, ranking_name: "Excellent"}
+		// Sort ascending so lower ranking_value (better rank) appears first, then apply the limit.
+		findOptions.SetSort(bson.D{{Key: "ranking.ranking_value", Value: 1}})
+		findOptions.SetLimit(recommendedMovieLimitVal)
+
+		// Filter for any movies whose embedded genre array contains one of the user's favourites.
+		// $in match documents where the field's value equals any element in this list.
+		// the field is genre.genre_name, and the list is favourite_genres
+		// so it returns every movie whose genre array contains at least one of the user's favourite genre names.
+		filter := bson.D{
+			{Key: "genre.genre_name", Value: bson.D{
+				{Key: "$in", Value: favourite_genres},
+			}},
+		}
+
+		ctx, cancel := context.WithTimeout(c, 100*time.Second)
+		defer cancel()
+
+		var movieCollection *mongo.Collection = database.OpenCollection("movies", client)
+
+		cursor, err := movieCollection.Find(ctx, filter, findOptions)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error occurred while fetching recommended movies"})
+			return
+		}
+		defer cursor.Close(ctx)
+
+		var recommendedMovies []models.Movie
+
+		// Stream cursor results into the slice; any decode error bubbles up as 500.
+		if err := cursor.All(ctx, &recommendedMovies); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error occurred while decoding recommended movies"})
+			return
+		}
+		c.JSON(http.StatusOK, recommendedMovies)
 	}
+}
+
+// GetUsersFavouriteGenres looks up a user's stored favourite genres and returns just their names.
+func GetUsersFavouriteGenres(userId string, client *mongo.Client, c *gin.Context) ([]string, error) {
+	ctx, cancel := context.WithTimeout(c, 100*time.Second)
+	defer cancel()
+
+	// Build a filter to locate the user document by the stable user_id field.
+	filter := bson.D{{Key: "user_id", Value: userId}}
+
+	// Projection limits the payload to the favourite_genres array; saves bandwidth and avoids leaking other fields.
+	projection := bson.M{
+		"favourite_genres": 1,
+		"_id":              0,
+	}
+
+	// Call out the projection that returns only the favourite_genres field to avoid extra data.
+	opts := options.FindOne().SetProjection(projection)
+
+	var userCollection *mongo.Collection = database.OpenCollection("users", client)
+
+	var result bson.M
+
+	// Read the document; return an empty slice if the user doesn't exist.
+	err := userCollection.FindOne(ctx, filter, opts).Decode(&result)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return []string{}, nil
+		}
+	}
+
+	// favourite_genres is stored as a BSON array of embedded documents.
+	favGenresArray, ok := result["favourite_genres"].(bson.A)
+	if !ok {
+		return []string{}, errors.New("unable to retrieve favourite genres")
+	}
+
+	var genreNames []string
+
+	// Traverse the embedded docs to pull out the literal genre_name strings.
+	// genre_name = "Comedy", "Thriller", "Drama" etc.
+	for _, item := range favGenresArray {
+		if genreMap, ok := item.(bson.D); ok {
+			for _, elem := range genreMap {
+				if elem.Key == "genre_name" {
+					if name, ok := elem.Value.(string); ok {
+						genreNames = append(genreNames, name)
+					}
+				}
+			}
+		}
+	}
+	return genreNames, nil
 }

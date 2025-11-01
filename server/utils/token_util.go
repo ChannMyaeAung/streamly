@@ -129,6 +129,7 @@ func ValidateToken(tokenString string) (*SignedDetails, error) {
 	return claims, nil
 }
 
+// Since we store userId and role in the Gin context in the AuthMiddleware, we can retrieve them here.
 func GetUserIdFromContext(c *gin.Context) (string, error) {
 	userId, exists := c.Get("userId")
 	if !exists {
@@ -140,4 +141,18 @@ func GetUserIdFromContext(c *gin.Context) (string, error) {
 		return "", errors.New("userId in context is not a string")
 	}
 	return id, nil
+}
+
+// Since we store userId and role in the Gin context in the AuthMiddleware, we can retrieve them here.
+func GetRoleFromContext(c *gin.Context) (string, error) {
+	role, exists := c.Get("role")
+	if !exists {
+		return "", errors.New("role not found in context")
+	}
+
+	memberRole, ok := role.(string)
+	if !ok {
+		return "", errors.New("role in context is not a string")
+	}
+	return memberRole, nil
 }
