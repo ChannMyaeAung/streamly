@@ -20,19 +20,19 @@ Movie-Streaming/
 └─ server/         # Go backend (Gin, MongoDB, LangChainGo integration point)
    ├─ controllers/ # HTTP handlers for movies and users
    ├─ database/    # Connection helpers reading .env configuration
-   ├─ middleware/  # Reserved for cross-cutting Gin middleware
+   ├─ middleware/  # JWT auth middleware
    ├─ models/      # BSON/JSON schema definitions with validation tags
-   ├─ routes/      # Route grouping (planned)
-   └─ utils/       # Shared helpers (e.g., JWT token scaffolding)
+   ├─ routes/      # Public vs protected route registration
+   └─ utils/       # Shared helpers (JWT, token rotation, etc.)
 ```
 
-## Core capabilities
+## Backend capabilities
 
-- **Movie catalog API** exposes list and detail endpoints with request validation.
-- **User management** supports registration with bcrypt hashing and conflict checks.
-- **AI-ready pipeline** leaves hooks for LangChainGo agents to feed recommendations into the user flow.
-- **Data seeding** provides rich sample JSON dumps so the experience is fully populated in minutes.
-- **Composable architecture** keeps front end, backend, and ML components independently deployable.
+- **Authentication & session management** using bcrypt-hashed passwords, JWT access/refresh tokens, and secure HTTP-only cookies.
+- **Movie catalog APIs** to list, fetch, and curate titles, including AI-assisted ranking updates and personalized recommendations.
+- **Data validation** via `go-playground/validator` to enforce schema rules on incoming payloads.
+- **MongoDB integration** with helper functions that share connection logic across controllers.
+- **Seed data** for instant local bootstrapping of movies, genres, rankings, and users.
 
 ## Technology stack
 
@@ -43,73 +43,108 @@ Movie-Streaming/
 | Data & Persistence     | MongoDB, BSON models               | Flexible schemas for media content    |
 | AI Recommendation Mesh | OpenAI API, LangChain chains       | Personalized rankings and discovery   |
 
-## Prerequisites
+## Environment variables
 
-- Go 1.25+ (see `server/go.mod`).
-- Node.js 18+ for the upcoming React client.
-- MongoDB instance (local Docker container or hosted cluster).
-- OpenAI API key when enabling the recommendation layer.
+Define these keys in `server/.env` before running the backend:
 
-## Quick start
+| Variable                             | Purpose                                                         |
+| ------------------------------------ | --------------------------------------------------------------- |
+| `MONGODB_URI`                        | Connection string for your MongoDB deployment                   |
+| `DATABASE_NAME`                      | Database name Streamly targets                                  |
+| `SECRET_KEY`                         | HMAC secret for signing 15-minute access tokens                 |
+| `SECRET_REFRESH_KEY`                 | Separate HMAC secret for signing 7-day refresh tokens           |
+| `BASE_PROMPT_TEMPLATE`               | LangChain/OpenAI template used when scoring admin reviews       |
+| `OPENAI_API_KEY`                     | API key used by the LangChainGo OpenAI client                   |
+| `RECOMMENDED_MOVIE_LIMIT` (optional) | Max number of personalized results returned                     |
+| `ALLOWED_ORIGINS`                    | Comma-separated CORS origins for any future frontend middleware |
 
-1. **Clone**
+## Backend quick start
+
+1. **Clone the repo**
 
    ```powershell
    git clone https://github.com/ChannMyaeAung/streamly.git
    cd streamly/server
    ```
 
-2. **Configure environment**
-   Create `server/.env`:
+2. **Provision environment variables**
+   Create `server/.env` with the keys above. Example:
 
    ```env
    MONGODB_URI=mongodb://localhost:27017
    DATABASE_NAME=streamly
-   OPENAI_API_KEY=
+   SECRET_KEY=change_me
+   SECRET_REFRESH_KEY=change_me_too
+   BASE_PROMPT_TEMPLATE=Return a response using one of these words: {rankings}.The response should be a single word and should not contain any other text. The response should be based on the following review: {review}
+   OPENAI_API_KEY=sk-...
+   RECOMMENDED_MOVIE_LIMIT=12
    ```
 
-   Additional keys (e.g., `RECOMMENDER_MODEL`) can be added as the AI layer evolves.
-
-3. **Install backend dependencies**
+3. **Install dependencies**
 
    ```powershell
    go mod tidy
    ```
 
-4. **Run the API**
+4. **Seed data (optional)**
 
-   ```powershell
-   go run main.go
-   ```
-
-   The service listens on `http://localhost:8080`.
-
-5. **Seed MongoDB (optional but recommended)**
    ```powershell
    $env:MONGODB_URI="mongodb://localhost:27017"
    $env:DATABASE_NAME="streamly"
    mongoimport --uri "$env:MONGODB_URI" --db $env:DATABASE_NAME --collection movies --file ..\seed-data\movies.json --jsonArray
    mongoimport --uri "$env:MONGODB_URI" --db $env:DATABASE_NAME --collection users --file ..\seed-data\users.json --jsonArray
+   mongoimport --uri "$env:MONGODB_URI" --db $env:DATABASE_NAME --collection genres --file ..\seed-data\genres.json --jsonArray
+   mongoimport --uri "$env:MONGODB_URI" --db $env:DATABASE_NAME --collection rankings --file ..\seed-data\rankings.json --jsonArray
    ```
-   Import `genres.json` and `rankings.json` using the same command pattern.
 
-## API snapshot
+5. **Run the API**
+   ```powershell
+   go run main.go
+   ```
+   The server listens on `http://localhost:8080` and exposes both public and protected routes.
 
-| Method | Route             | Purpose                              |
-| ------ | ----------------- | ------------------------------------ |
-| GET    | `/hello`          | Connectivity probe                   |
-| GET    | `/movies`         | Retrieve the full catalog            |
-| GET    | `/movie/:imdb_id` | Fetch a single movie by IMDb handle  |
-| POST   | `/addmovie`       | Insert a validated movie entry       |
-| POST   | `/register`       | Register new users with hashed creds |
+## Backend API surface
 
-Upcoming endpoints will cover `/login`, `/recommendations`, and user preference updates once the AI workflows are wired in.
+Use the `AuthMiddleware`-protected endpoints with the HTTP-only cookies issued during login.
 
-## Frontend game plan
+**Public endpoints**
 
-- Bootstrapped via Vite or Create React App targeting the `client/` directory.
-- Uses global state (Redux Toolkit or Zustand) to orchestrate playback, favorites, and profile data.
-- Integrates with the `/recommendations` endpoint to surface LangChain-driven picks in the hero carousel.
+| Method | Route       | Description                                                |
+| ------ | ----------- | ---------------------------------------------------------- |
+| GET    | `/hello`    | Health probe defined in `main.go`                          |
+| GET    | `/movies`   | Return the full movie catalog                              |
+| GET    | `/genres`   | List available genres (driven by `models.Genre`)           |
+| POST   | `/register` | Register a user; validates payload and hashes the password |
+| POST   | `/login`    | Issue access/refresh cookies on successful authentication  |
+| POST   | `/logout`   | Clear cookies and invalidate tokens stored in MongoDB      |
+| POST   | `/refresh`  | Rotate access/refresh tokens using the refresh cookie      |
+
+**Protected endpoints** (require valid `access_token` cookie)
+
+| Method | Route                    | Description                                                       |
+| ------ | ------------------------ | ----------------------------------------------------------------- |
+| GET    | `/movie/:imdb_id`        | Fetch a single movie by IMDb identifier                           |
+| POST   | `/addmovie`              | Create a movie entry; validates request body before inserting     |
+| GET    | `/recommendedmovies`     | Return personalized picks filtered by the user’s favourite genres |
+| PATCH  | `/updatereview/:imdb_id` | Update admin review text and AI-derived ranking for a movie       |
+
+## Auth & session notes
+
+- Tokens are stored in secure, HTTP-only cookies (`access_token`, `refresh_token`) to shield them from XSS.
+- Access tokens live for 15 minutes; refresh tokens remain valid for 7 days and are rotated by `/refresh`.
+- Token pairs are also cached in MongoDB (`users.token`, `users.refresh_token`) so logout and rotation can revoke them server-side.
+- `AuthMiddleware` extracts the bearer token, validates it, and surfaces `userId`/`role` in the Gin context for downstream handlers.
+
+## Recommendation & AI workflow
+
+- `AdminReviewUpdate` uses LangChainGo + OpenAI to classify admin-written reviews against values pulled from the `rankings` collection.
+- Personalized results returned by `/recommendedmovies` leverage stored favourite genres and sorted ranking metadata to surface the best matches.
+
+## Frontend roadmap
+
+- Scaffold the React client under `client/`, wiring it to the cookie-based auth flow.
+- Surface `/recommendedmovies` output in a personalized carousel.
+- Provide admin tooling to trigger `/updatereview/:imdb_id` and manage catalog curation.
 
 ## Contribution guide
 
@@ -118,98 +153,6 @@ Upcoming endpoints will cover `/login`, `/recommendations`, and user preference 
 3. Add tests or sample JSON updates when introducing new behavior.
 4. Submit a pull request describing the change and validation performed.
 
-## Roadmap ideas
-
-- OAuth login and session refresh tokens.
-- Real-time presence metrics via WebSockets.
-- Offline-first progressive web app experience.
-- Automated evaluation of AI recommendations against user feedback loops.
-
 ## License
 
 Streamly is available under the MIT License. Contributions are welcome; feel free to fork and innovate.
-
-# Streamly
-
-Streamly is a lightweight movie discovery and streaming companion built with Go, Gin, and MongoDB. The backend powers movie catalog lookups, secure user registration, and future playback features, while the repository also reserves space for a web client. This README walks through the project structure, setup steps, and available endpoints so you can run the service locally or extend it further.
-
-## Project layout
-
-```
-Movie-Streaming/
-├─ client/               # Front-end placeholder for a future React or SPA client
-├─ seed-data/            # Sample MongoDB import files for movies, users, rankings, and genres
-└─ server/               # Go REST API (Gin, MongoDB)
-	├─ controllers/       # Route handlers for movies and users
-	├─ database/          # MongoDB connection helpers
-	├─ middleware/        # Reserved for shared Gin middleware
-	├─ models/            # BSON/JSON models with validation tags
-	├─ routes/            # Route grouping (reserved)
-	└─ utils/             # Shared utilities such as JWT helpers
-```
-
-## Backend features
-
-- REST API built with `gin-gonic` exposing movie discovery and user flows.
-- MongoDB integration with connection helpers that read `MONGODB_URI` and `DATABASE_NAME` from `.env`.
-- Request validation via `go-playground/validator` to enforce schema rules on movies and users.
-- Secure password hashing with `bcrypt` before persisting user records.
-- Seed JSON collections to bootstrap development data, including genres, movies, and user profiles.
-
-## Prerequisites
-
-- Go 1.25 or newer (per `server/go.mod`).
-- MongoDB instance (local Docker container, Atlas cluster, etc.).
-- PowerShell or a Unix-like shell for running the setup commands below.
-
-## Getting started
-
-1. **Clone the repository**
-
-   ```powershell
-   git clone https://github.com/ChannMyaeAung/streamly.git
-   cd streamly/server
-   ```
-
-2. **Provide environment variables**
-   Create `server/.env` with at least:
-
-   ```env
-   MONGODB_URI=mongodb://localhost:27017
-   DATABASE_NAME=streamly
-   ```
-
-   Adjust the URI and database name for your environment. The backend loads these values on startup.
-
-3. **Install dependencies**
-
-   ```powershell
-   go mod tidy
-   ```
-
-4. **Run the API**
-   ```powershell
-   go run main.go
-   ```
-   The server listens on `http://localhost:8080` by default.
-
-## Seeding development data
-
-The `seed-data/` directory contains JSON exports you can import into MongoDB for quick testing. For example, using `mongoimport`:
-
-```powershell
-mongoimport --uri "$env:MONGODB_URI" --db $env:DATABASE_NAME --collection movies --file ..\seed-data\movies.json --jsonArray
-mongoimport --uri "$env:MONGODB_URI" --db $env:DATABASE_NAME --collection users --file ..\seed-data\users.json --jsonArray
-```
-
-Repeat for `genres.json` and `rankings.json` if needed. Ensure the target database matches `DATABASE_NAME` in `.env`.
-
-## API reference
-
-| Method | Endpoint          | Description                                |
-| ------ | ----------------- | ------------------------------------------ |
-| GET    | `/hello`          | Health check that returns a welcome string |
-| GET    | `/movies`         | Fetch all movies from the catalog          |
-| GET    | `/movie/:imdb_id` | Retrieve a single movie by IMDb identifier |
-| POST   | `/addmovie`       | Create a new movie (validated payload)     |
-| POST   | `/register`       | Register a new user with hashed password   |

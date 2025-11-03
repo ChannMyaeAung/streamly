@@ -156,3 +156,27 @@ func GetRoleFromContext(c *gin.Context) (string, error) {
 	}
 	return memberRole, nil
 }
+
+func ValidateRefreshToken(tokenString string) (*SignedDetails, error) {
+	// Claims target the refresh token payload structure, including expiry metadata.
+	claims := &SignedDetails{}
+
+	// Parse the token using the refresh secret; this verifies the signature and fills the claims object.
+	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+		return []byte(SECRET_REFRESH_KEY), nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// Only accept HMAC-signed tokens; anything else could be forged.
+	if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+		return nil, err
+	}
+
+	// Ensure the refresh token is still valid; expired tokens cannot mint new access tokens.
+	if claims.ExpiresAt.Time.Before(time.Now()) {
+		return nil, errors.New("refresh token has expired")
+	}
+	return claims, nil
+}
