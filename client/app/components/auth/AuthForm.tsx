@@ -3,20 +3,40 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { api } from "@/lib/api";
-import { LoginPayload, RegisterPayload } from "@/lib/type";
+import { Genre, LoginPayload, RegisterPayload } from "@/lib/type";
 import { useRouter } from "next/navigation";
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 
 type AuthFormProps = {
   mode: "login" | "register";
 };
 
-const defaultState = {
+type FormState = {
+  first_name: string;
+  last_name: string;
+  email: string;
+  password: string;
+  role: "USER" | "ADMIN";
+  favouriteGenreIds: number[];
+};
+
+const defaultState: FormState = {
   first_name: "",
   last_name: "",
   email: "",
   password: "",
+  role: "USER",
+  favouriteGenreIds: [],
 };
 
 const AuthForm = ({ mode }: AuthFormProps) => {
@@ -24,11 +44,64 @@ const AuthForm = ({ mode }: AuthFormProps) => {
   const [form, setForm] = useState(defaultState);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [genres, setGenres] = useState<Genre[]>([]);
+  const [genresLoading, setGenresLoading] = useState(false);
+  const [genresError, setGenresError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (mode !== "register") return;
+
+    let ignore = false;
+    const load = async () => {
+      try {
+        setGenresLoading(true);
+        setGenresError(null);
+        const data = await api.getGenres();
+        if (!ignore) setGenres(data);
+      } catch (err) {
+        if (!ignore) {
+          const message =
+            err instanceof Error ? err.message : "Unable to load genres";
+          setGenresError(message);
+        }
+      } finally {
+        if (!ignore) setGenresLoading(false);
+      }
+    };
+
+    void load();
+
+    return () => {
+      ignore = true;
+    };
+  }, [mode]);
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = event.target;
     setForm((prev) => ({ ...prev, [name]: value }));
   };
+
+  const handleRoleChange = (value: string) => {
+    setForm((prev) => ({ ...prev, role: value as "USER" | "ADMIN" }));
+  };
+
+  const toggleFavouriteGenre = (genreId: number) => {
+    setForm((prev) => {
+      const isSelected = prev.favouriteGenreIds.includes(genreId);
+      const favouriteGenreIds = isSelected
+        ? prev.favouriteGenreIds.filter((id) => id !== genreId)
+        : [...prev.favouriteGenreIds, genreId];
+      return { ...prev, favouriteGenreIds };
+    });
+  };
+
+  const selectedGenres = useMemo(
+    () =>
+      form.favouriteGenreIds
+        .map((id) => genres.find((genre) => genre.genre_id === id))
+        .filter((genre): genre is Genre => Boolean(genre)),
+    [form.favouriteGenreIds, genres]
+  );
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -44,11 +117,16 @@ const AuthForm = ({ mode }: AuthFormProps) => {
         const response = await api.login(payload);
         setMessage(response.message ?? "Logged in successfully");
       } else {
+        if (!selectedGenres.length) {
+          throw new Error("Select at least one favourite genre");
+        }
         const payload: RegisterPayload = {
           first_name: form.first_name,
           last_name: form.last_name,
           email: form.email,
           password: form.password,
+          role: form.role,
+          favourite_genres: selectedGenres,
         };
         const response = await api.register(payload);
         setMessage(response.message ?? "Account created successfully");
@@ -84,28 +162,79 @@ const AuthForm = ({ mode }: AuthFormProps) => {
       </header>
 
       {mode === "register" && (
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="first_name">First name</Label>
-            <Input
-              id="first_name"
-              name="first_name"
-              autoComplete="given-name"
-              value={form.first_name}
-              onChange={handleChange}
-              required
-            />
+        <div className="grid gap-6">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="first_name">First name</Label>
+              <Input
+                id="first_name"
+                name="first_name"
+                autoComplete="given-name"
+                value={form.first_name}
+                onChange={handleChange}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="last_name">Last name</Label>
+              <Input
+                id="last_name"
+                name="last_name"
+                autoComplete="family-name"
+                value={form.last_name}
+                onChange={handleChange}
+                required
+              />
+            </div>
           </div>
+
           <div className="space-y-2">
-            <Label htmlFor="last_name">Last name</Label>
-            <Input
-              id="last_name"
-              name="last_name"
-              autoComplete="family-name"
-              value={form.last_name}
-              onChange={handleChange}
-              required
-            />
+            <Label>Role</Label>
+            <Select value={form.role} onValueChange={handleRoleChange}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select role" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectLabel>Role</SelectLabel>
+                  <SelectItem value="USER">User</SelectItem>
+                  <SelectItem value="ADMIN">Admin</SelectItem>
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-3">
+            <Label>Favourite genres</Label>
+            {genresLoading && (
+              <p className="text-sm text-muted-foreground">Loading genres…</p>
+            )}
+            {genresError && (
+              <p className="text-sm text-destructive">{genresError}</p>
+            )}
+            {!genresLoading && !genresError && (
+              <div className="grid gap-2 sm:grid-cols-2">
+                {genres.map((genre) => {
+                  const checked = form.favouriteGenreIds.includes(
+                    genre.genre_id
+                  );
+                  return (
+                    <label
+                      key={genre.genre_id}
+                      className="flex cursor-pointer items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm hover:border-primary"
+                    >
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4"
+                        checked={checked}
+                        onChange={() => toggleFavouriteGenre(genre.genre_id)}
+                      />
+                      <span>{genre.genre_name}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -136,7 +265,10 @@ const AuthForm = ({ mode }: AuthFormProps) => {
         />
       </div>
 
-      <Button>
+      <Button
+        type="submit"
+        disabled={loading || (mode === "register" && genresLoading)}
+      >
         {loading
           ? "Please wait..."
           : mode === "login"

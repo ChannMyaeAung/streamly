@@ -1,6 +1,6 @@
-import { LoginPayload, Movie, RegisterPayload } from "./type";
+import { Genre, LoginPayload, Movie, RegisterPayload } from "./type";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
 type ApiError = Error & { status?: number; payload?: unknown };
 
@@ -79,7 +79,7 @@ export function normalizeMovie(raw: any): Movie {
     imdbId: raw.imdb_id ?? raw.imdbId ?? "",
     title: raw.title ?? raw.Title ?? "Untitled",
     description: raw.description ?? raw.admin_review ?? "",
-    posterPath:
+    posterUrl:
       raw.poster_path ??
       raw.poster ??
       raw.Poster ??
@@ -95,6 +95,10 @@ export function normalizeMovie(raw: any): Movie {
 }
 
 export const api = {
+  async getGenres(): Promise<Genre[]> {
+    return request<Genre[]>("/genres");
+  },
+
   async getMovies(): Promise<Movie[]> {
     const data = await request<any[]>("/movies");
     return data.map(normalizeMovie);

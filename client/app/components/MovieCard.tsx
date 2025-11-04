@@ -1,6 +1,15 @@
+"use client";
 import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Lens } from "@/components/ui/lens";
 import { Movie } from "@/lib/type";
-import { cn } from "@/lib/utils";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -13,7 +22,7 @@ const MovieCard = ({ movie, className }: MovieProps) => {
   const {
     imdbId,
     title,
-    posterPath,
+    posterUrl,
     description,
     genres,
     rankingName,
@@ -21,58 +30,52 @@ const MovieCard = ({ movie, className }: MovieProps) => {
   } = movie;
 
   return (
-    <article
-      className={cn(
-        "flex h-full flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm transition hover:-translate-y-1 hover:shadow-lg",
-        className
-      )}
-    >
-      {posterPath ? (
-        <div className="relative aspect-2/3 w-full overflow-hidden bg-muted">
-          <Image
-            src={posterPath}
-            alt={`${title} poster`}
-            fill
-            sizes="(max-width: 768px) 100vw, 300px"
-            className="object-cover transition duration-300 hover:scale-105"
-          />
-        </div>
+    <>
+      {posterUrl ? (
+        <Card className="relative max-w-md shadow-none">
+          <CardHeader>
+            <Lens
+              zoomFactor={2}
+              lensSize={150}
+              isStatic={false}
+              ariaLabel="Zoom Area"
+            >
+              <Image
+                src={posterUrl}
+                alt="image placeholder"
+                width={500}
+                height={500}
+              />
+            </Lens>
+          </CardHeader>
+          <CardContent className="space-y-1">
+            <CardTitle className="text-2xl">{title}</CardTitle>
+            {(rankingName || rankingValue) && (
+              <CardDescription>
+                {rankingName ?? "Ranking"}{" "}
+                {rankingValue ? `• ${rankingValue}` : null}
+              </CardDescription>
+            )}
+            {genres.length > 0 && (
+              <CardDescription className="text-sm text-muted-foreground">
+                {genres.join(" • ")}
+              </CardDescription>
+            )}
+            <CardDescription>
+              <span className="font-semibold text-gray-50">Admin Review:</span>{" "}
+              {description || "No description available."}
+            </CardDescription>
+          </CardContent>
+          <CardFooter className="space-x-4">
+            <Button asChild size={"sm"} className="w-full">
+              <Link href={`/movie/${imdbId}`}>View Details</Link>
+            </Button>
+          </CardFooter>
+        </Card>
       ) : (
         <div className="aspect-2/3 w-full bg-muted" />
       )}
-
-      <div className="flex flex-1 flex-col gap-3 bg-muted p-5">
-        <div>
-          <h3 className="text-lg font-semibold text-foreground">{title}</h3>
-          {(rankingName || rankingValue) && (
-            <p className="text-sm text-muted-foreground">
-              {rankingName ?? "Ranking"}
-              {rankingValue ? `: ${rankingValue}` : null}
-            </p>
-          )}
-        </div>
-
-        {genres.length > 0 && (
-          <p className="text-xs uppercase tracking-wider text-muted-foreground">
-            {genres.join(" • ")}
-          </p>
-        )}
-
-        <p className="">
-          <span className="">Admin Review: </span>
-          {""}
-          <span className="line-clamp-3 text-sm text-muted-foreground">
-            {description || "This movie does not have a description yet."}
-          </span>
-        </p>
-
-        <div className="mt-auto pt-4">
-          <Button asChild size={"sm"} className="w-full">
-            <Link href={`/movie/${imdbId}`}>View Details</Link>
-          </Button>
-        </div>
-      </div>
-    </article>
+    </>
   );
 };
 
