@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
 import { Movie } from "@/lib/type";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
@@ -13,19 +14,35 @@ const RecommendedMovies = () => {
   const [movies, setMovies] = useState<Movie[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<StatusError | null>(null);
+  const { user, loading: authLoading, logout } = useAuth();
 
   const load = useCallback(async () => {
+    if (!user) return;
+
+    setLoading(true);
+    setError(null);
+
     try {
-      setLoading(true);
+      const data = await api.getRecommendedMovies();
+      setMovies(data);
     } catch (err) {
-      if (err instanceof Error && (err as StatusError).status === 401) {
+      const typedError = err as StatusError;
+      if (typedError?.status === 401) {
         try {
           await api.refresh();
           const retried = await api.getRecommendedMovies();
           setMovies(retried);
           setError(null);
         } catch (refreshErr) {
-          setError(refreshErr as StatusError);
+          const refreshTyped = refreshErr as StatusError;
+          if (refreshTyped?.status === 401) {
+            await logout();
+          }
+          setError(
+            refreshErr instanceof Error
+              ? (refreshErr as StatusError)
+              : new Error("Unable to load recommended movies")
+          );
         }
       } else {
         setError(
@@ -37,11 +54,24 @@ const RecommendedMovies = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user, logout]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    if (authLoading) return;
+
+    if (!user) {
+      setMovies([]);
+      const unauth = new Error(
+        "Sign in to see personalised recommendations."
+      ) as StatusError;
+      unauth.status = 401;
+      setError(unauth);
+      setLoading(false);
+      return;
+    }
+
+    void load();
+  }, [authLoading, user, load]);
 
   const status = error?.status;
 
@@ -60,7 +90,7 @@ const RecommendedMovies = () => {
         </div>
       )}
 
-      {!loading && error && status === 401 && !movies.length && (
+      {!loading && error && status === 401 && !user && (
         <div className="space-y-4 text-center">
           <p className="text-sm text-muted-foreground">
             Sign in to see personalised recommendations.
@@ -90,10 +120,10 @@ const RecommendedMovies = () => {
         </div>
       )}
 
-      {!loading && !error && !movies.length && (
+      {!loading && !error && !movies.length && user && (
         <p className="text-center text-sm text-muted-foreground">
           We don't have enough data to recommend movies yet. Rate a few titles
-          or refresh laster.
+          or refresh later.
         </p>
       )}
     </div>

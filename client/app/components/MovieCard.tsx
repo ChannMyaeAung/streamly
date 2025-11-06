@@ -32,7 +32,7 @@ const MovieCard = ({ movie, className }: MovieProps) => {
   return (
     <>
       {posterUrl ? (
-        <Card className="relative max-w-md shadow-none">
+        <Card className="relative max-w-md shadow-none flex flex-col justify-between">
           <CardHeader>
             <Lens
               zoomFactor={2}

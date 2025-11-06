@@ -1,4 +1,5 @@
 import { ThemeProvider } from "@/components/theme-provider";
+import { AuthProvider } from "@/lib/auth-context";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Navbar from "./components/Navbar";
@@ -35,10 +36,12 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <main className="w-full mb-6">
-            <Navbar />
-            <div className="px-8 py-4">{children}</div>
-          </main>
+          <AuthProvider>
+            <main className="w-full mb-6">
+              <Navbar />
+              <div className="px-8 py-4">{children}</div>
+            </main>
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

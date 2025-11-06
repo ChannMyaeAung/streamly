@@ -1,21 +1,51 @@
-import { Genre, LoginPayload, Movie, RegisterPayload } from "./type";
+import { Genre, LoginPayload, Movie, RegisterPayload, User } from "./type";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
 type ApiError = Error & { status?: number; payload?: unknown };
 
-const defaultHeaders = {
+const defaultHeaders = new Headers({
   "Content-Type": "application/json",
-};
+});
 
+// Pull a persisted access token from localStorage so API calls can authorize without cookies.
+function getStoredAccessToken(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem("streamly:user");
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    const token = parsed?.token;
+    return typeof token === "string" && token.length > 0 ? token : null;
+  } catch {
+    return null;
+  }
+}
+
+// Wrap fetch to enforce credentials, merge headers, and surface normalized errors.
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const headers = new Headers(defaultHeaders);
+
+  // Ensure any caller-supplied headers are merged on top of our defaults.
+  if (init.headers) {
+    const provided = new Headers(init.headers as HeadersInit);
+    provided.forEach((value, key) => {
+      headers.set(key, value);
+    });
+  }
+
+  // Automatically add the bearer token when the consumer does not pass one explicitly.
+  if (!headers.has("Authorization")) {
+    const token = getStoredAccessToken();
+    if (token) {
+      headers.set("Authorization", `Bearer ${token}`);
+    }
+  }
+
   const response = await fetch(`${API_BASE_URL}${path}`, {
-    credentials: "include",
-    headers: {
-      ...defaultHeaders,
-      ...(init.headers ?? {}),
-    },
     ...init,
+    credentials: "include",
+    headers,
   });
 
   const contentType = response.headers.get("content-type") || "";
@@ -44,13 +74,9 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return payload as T;
 }
 
+// Convert mixed movie payload shapes into the client-facing Movie model.
 export function normalizeMovie(raw: any): Movie {
-  const genreSource =
-    raw.genres ??
-    raw.genre ??
-    raw.favourite_genres ??
-    raw.favorite_genres ??
-    [];
+  const genreSource = raw.genre ?? [];
 
   const genres = Array.isArray(genreSource)
     ? genreSource
@@ -61,31 +87,15 @@ export function normalizeMovie(raw: any): Movie {
         .filter(Boolean)
     : [];
 
-  const rankingName =
-    raw.ranking?.ranking_name ??
-    raw.ranking?.name ??
-    raw.ranking_name ??
-    raw.RankingName ??
-    undefined;
+  const rankingName = raw.ranking?.ranking_name ?? undefined;
 
-  const rankingValue =
-    raw.ranking?.ranking_value ??
-    raw.ranking?.value ??
-    raw.ranking_value ??
-    raw.RankingValue ??
-    undefined;
+  const rankingValue = raw.ranking?.ranking_value ?? undefined;
 
   return {
     imdbId: raw.imdb_id ?? raw.imdbId ?? "",
-    title: raw.title ?? raw.Title ?? "Untitled",
+    title: raw.title ?? "Untitled",
     description: raw.description ?? raw.admin_review ?? "",
-    posterUrl:
-      raw.poster_path ??
-      raw.poster ??
-      raw.Poster ??
-      raw.backdrop ??
-      raw.banner_url ??
-      undefined,
+    posterUrl: raw.poster_path ?? undefined,
     rankingName,
     rankingValue,
     genres,
@@ -95,15 +105,18 @@ export function normalizeMovie(raw: any): Movie {
 }
 
 export const api = {
+  // Retrieve the available genre definitions for registration filters.
   async getGenres(): Promise<Genre[]> {
     return request<Genre[]>("/genres");
   },
 
+  // Load all movies and normalize their structure for UI consumption.
   async getMovies(): Promise<Movie[]> {
     const data = await request<any[]>("/movies");
     return data.map(normalizeMovie);
   },
 
+  // Fetch an individual movie by IMDb id with fresh data from the server.
   async getMovie(imdbId: string): Promise<Movie> {
     const data = await request<any>(`/movie/${imdbId}`, {
       method: "GET",
@@ -112,6 +125,7 @@ export const api = {
     return normalizeMovie(data);
   },
 
+  // Get recommendations for the current user, retrying normalization per item.
   async getRecommendedMovies(): Promise<Movie[]> {
     const data = await request<any[]>("/recommendedmovies", {
       method: "GET",
@@ -120,23 +134,34 @@ export const api = {
     return data.map(normalizeMovie);
   },
 
-  async login(payload: LoginPayload) {
-    return request<{ message: string; user?: unknown }>("/login", {
+  // Authenticate a user and return the profile details supplied by the API.
+  async login(payload: LoginPayload): Promise<User> {
+    return request<User>("/login", {
       method: "POST",
       body: JSON.stringify(payload),
     });
   },
 
+  // Register a new user account with role and genre preferences.
   async register(payload: RegisterPayload) {
-    return request<{ message: string; user?: unknown }>("/register", {
+    return request<unknown>("/register", {
       method: "POST",
       body: JSON.stringify(payload),
     });
   },
 
+  // Refresh the access token using the refresh cookie maintained by the API.
   async refresh() {
     return request<{ message: string }>("/refresh", {
       method: "POST",
+    });
+  },
+
+  // Revoke the active session by informing the server of the current user id.
+  async logout(userId: string) {
+    return request<{ message: string }>("/logout", {
+      method: "POST",
+      body: JSON.stringify({ user_id: userId }),
     });
   },
 };

@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { api } from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
 import { Genre, LoginPayload, RegisterPayload } from "@/lib/type";
 import { useRouter } from "next/navigation";
 import React, { useEffect, useMemo, useState } from "react";
@@ -41,6 +42,7 @@ const defaultState: FormState = {
 
 const AuthForm = ({ mode }: AuthFormProps) => {
   const router = useRouter();
+  const { setUser } = useAuth();
   const [form, setForm] = useState(defaultState);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -114,8 +116,9 @@ const AuthForm = ({ mode }: AuthFormProps) => {
           email: form.email,
           password: form.password,
         };
-        const response = await api.login(payload);
-        setMessage(response.message ?? "Logged in successfully");
+        const user = await api.login(payload);
+        setUser(user);
+        setMessage("Logged in successfully");
       } else {
         if (!selectedGenres.length) {
           throw new Error("Select at least one favourite genre");
@@ -128,12 +131,16 @@ const AuthForm = ({ mode }: AuthFormProps) => {
           role: form.role,
           favourite_genres: selectedGenres,
         };
-        const response = await api.register(payload);
-        setMessage(response.message ?? "Account created successfully");
+        await api.register(payload);
+        const user = await api.login({
+          email: form.email,
+          password: form.password,
+        });
+        setUser(user);
+        setMessage("Account created successfully");
       }
-      setTimeout(() => {
-        router.push("/");
-      }, 500);
+      setForm(defaultState);
+      router.push("/");
     } catch (err) {
       const fallback =
         mode === "login"

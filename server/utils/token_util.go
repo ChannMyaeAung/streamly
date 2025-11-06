@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/ChannMyaeAung/streamly/server/database"
@@ -92,16 +93,24 @@ func UpdateAllTokens(userId, token, refreshToken string, client *mongo.Client) (
 
 func GetAccessToken(c *gin.Context) (string, error) {
 	authHeader := c.Request.Header.Get("Authorization")
-	if authHeader == "" {
-		return "", errors.New("authorization header is missing")
-	}
-	tokenString := authHeader[len("Bearer "):]
-
-	if tokenString == "" {
+	if strings.HasPrefix(authHeader, "Bearer ") {
+		tokenString := strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer "))
+		if tokenString != "" {
+			return tokenString, nil
+		}
 		return "", errors.New("bearer token is missing")
 	}
 
-	return tokenString, nil
+	cookieToken, err := c.Cookie("access_token")
+	if err == nil && cookieToken != "" {
+		return cookieToken, nil
+	}
+
+	if authHeader != "" {
+		return "", errors.New("unsupported authorization header format")
+	}
+
+	return "", errors.New("authorization credentials not provided")
 }
 
 func ValidateToken(tokenString string) (*SignedDetails, error) {

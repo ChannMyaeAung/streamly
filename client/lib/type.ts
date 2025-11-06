@@ -26,3 +26,14 @@ export interface RegisterPayload extends LoginPayload {
   role: "USER" | "ADMIN";
   favourite_genres: Genre[];
 }
+
+export interface User {
+  user_id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  role: "USER" | "ADMIN";
+  token?: string;
+  refresh_token?: string;
+  favourite_genres: Genre[];
+}
