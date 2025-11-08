@@ -22,7 +22,7 @@ const MovieCard = ({ movie, className }: MovieProps) => {
   const {
     imdbId,
     title,
-    posterUrl,
+    posterPath,
     description,
     genres,
     rankingName,
@@ -31,7 +31,7 @@ const MovieCard = ({ movie, className }: MovieProps) => {
 
   return (
     <>
-      {posterUrl ? (
+      {posterPath ? (
         <Card className="relative max-w-md shadow-none flex flex-col justify-between">
           <CardHeader>
             <Lens
@@ -41,7 +41,7 @@ const MovieCard = ({ movie, className }: MovieProps) => {
               ariaLabel="Zoom Area"
             >
               <Image
-                src={posterUrl}
+                src={posterPath}
                 alt="image placeholder"
                 width={500}
                 height={500}

@@ -94,12 +94,13 @@ export function normalizeMovie(raw: any): Movie {
   return {
     imdbId: raw.imdb_id ?? raw.imdbId ?? "",
     title: raw.title ?? "Untitled",
-    description: raw.description ?? raw.admin_review ?? "",
-    posterUrl: raw.poster_path ?? undefined,
+    description: raw.description ?? "",
+    posterPath: raw.poster_path ?? undefined,
     rankingName,
     rankingValue,
     genres,
     adminReview: raw.admin_review ?? undefined,
+    youtubeId: raw.youtube_id ?? undefined,
     runtimeMinutes: raw.runtime_minutes ?? raw.runtime ?? undefined,
   };
 }

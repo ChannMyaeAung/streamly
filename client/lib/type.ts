@@ -7,11 +7,12 @@ export interface Movie {
   imdbId: string;
   title: string;
   description?: string;
-  posterUrl?: string;
+  posterPath?: string;
   rankingName?: string;
   rankingValue?: number;
   genres: string[];
   adminReview?: string;
+  youtubeId?: string;
   runtimeMinutes?: number;
 }
 
