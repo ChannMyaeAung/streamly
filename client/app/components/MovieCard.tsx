@@ -68,7 +68,7 @@ const MovieCard = ({ movie, className }: MovieProps) => {
           </CardContent>
           <CardFooter className="space-x-4">
             <Button asChild size={"sm"} className="w-full">
-              <Link href={`/movie/${imdbId}`}>View Details</Link>
+              <Link href={`/movie/${imdbId}`}>View Details & Watch</Link>
             </Button>
           </CardFooter>
         </Card>

@@ -2,10 +2,23 @@
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { Movie } from "@/lib/type";
+import {
+  MediaControlBar,
+  MediaController,
+  MediaFullscreenButton,
+  MediaMuteButton,
+  MediaPlaybackRateButton,
+  MediaPlayButton,
+  MediaSeekBackwardButton,
+  MediaSeekForwardButton,
+  MediaTimeDisplay,
+  MediaTimeRange,
+  MediaVolumeRange,
+} from "media-chrome/react";
 import Image from "next/image";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import ReactPlayer from "react-player";
 
 type StatusError = Error & { status?: number };
@@ -13,6 +26,7 @@ type StatusError = Error & { status?: number };
 const SingleMoviePage = () => {
   const params = useParams<{ imdbId: string }>();
   const imdbId = params?.imdbId;
+
   const [movie, setMovie] = useState<Movie | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<StatusError | null>(null);
@@ -31,11 +45,11 @@ const SingleMoviePage = () => {
         }
       } catch (err) {
         if (!ignore) {
-          if (err instanceof Error) {
-            setError(err as StatusError);
-          } else {
-            setError(new Error("Unable to load movie"));
-          }
+          setError(
+            (err instanceof Error
+              ? err
+              : new Error("Unable to load movie")) as StatusError
+          );
         }
       } finally {
         if (!ignore) {
@@ -52,21 +66,32 @@ const SingleMoviePage = () => {
   }, [imdbId]);
 
   const status = error?.status;
+  const movieGenres = useMemo(() => movie?.genres ?? [], [movie?.genres]);
 
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-8 px-6 py-12">
-      <Button asChild variant={"outline"} className="w-fit">
-        <Link href={"/movies"}>Back to movies</Link>
-      </Button>
+    <div className="mx-auto w-full max-w-6xl space-y-10 px-6 py-12">
+      <div className="flex items-center justify-between">
+        <Button asChild variant="outline">
+          <Link href="/movies">Back to catalogue</Link>
+        </Button>
+        {movie?.rankingName && (
+          <div className="rounded-full border border-border px-4 py-1 text-xs uppercase tracking-[0.24em] text-muted-foreground">
+            Ranked: {movie.rankingName}
+            {movie.rankingValue ? ` • ${movie.rankingValue}` : ""}
+          </div>
+        )}
+      </div>
+
       {loading && (
-        <div className="space-y-4">
-          <div className="h-10 w-3/4 animate-pulse rounded bg-muted" />
-          <div className="flex flex-col gap-6 sm:flex-row">
-            <div className="aspect-2/3 w-full animate-pulse rounded bg-muted sm:w-64" />
-            <div className="flex-1 space-y-4">
+        <div className="space-y-6">
+          <div className="aspect-video w-full animate-pulse rounded-3xl border border-border bg-muted" />
+          <div className="grid gap-6 md:grid-cols-[240px_1fr]">
+            <div className="aspect-2/3 w-full animate-pulse rounded-xl bg-muted" />
+            <div className="space-y-3">
+              <div className="h-8 w-2/3 animate-pulse rounded bg-muted" />
               <div className="h-4 w-full animate-pulse rounded bg-muted" />
-              <div className="h-4 w-full animate-pulse rounded bg-muted" />
-              <div className="h-4 w-2/3 animate-pulse rounded bg-muted" />
+              <div className="h-4 w-11/12 animate-pulse rounded bg-muted" />
+              <div className="h-4 w-3/4 animate-pulse rounded bg-muted" />
             </div>
           </div>
         </div>
@@ -81,7 +106,7 @@ const SingleMoviePage = () => {
             <Button asChild>
               <Link href="/login">Sign in</Link>
             </Button>
-            <Button asChild variant={"outline"}>
+            <Button asChild variant="outline">
               <Link href="/register">Create account</Link>
             </Button>
           </div>
@@ -95,70 +120,136 @@ const SingleMoviePage = () => {
       )}
 
       {!loading && movie && (
-        <div className="flex flex-col gap-6 sm:flex-row">
-          {movie.posterPath ? (
-            <div className="relative aspect-2/3 w-full overflow-hidden rounded-lg sm:w-64">
+        <div className="space-y-12">
+          <section className="relative overflow-hidden rounded-3xl border border-border bg-[#0B0B0F] shadow-[0_30px_120px_-60px_rgba(15,15,26,0.8)]">
+            {movie.posterPath && (
               <Image
                 src={movie.posterPath}
-                alt={`${movie.title} poster`}
+                alt={`${movie.title} backdrop`}
                 fill
-                className="object-cover"
-                sizes="(max-width: 640px) 100vw, 256px"
+                className="absolute inset-0 -z-10 h-full w-full scale-110 transform object-cover opacity-30 blur-[60px]"
+                sizes="(max-width: 1024px) 100vw, 1200px"
+                priority
               />
-            </div>
-          ) : (
-            <div className="aspect-2/3 w-full rounded-lg bg-muted sm:w-64" />
-          )}
-
-          <div className="flex-1 space-y-4">
-            <div className="space-y-1">
-              <h1 className="text-3xl font-bold">{movie.title}</h1>
-              {movie.rankingName && (
-                <p>
-                  {movie.rankingName}
-                  {movie.rankingValue ? ` • ${movie.rankingValue}` : null}
-                </p>
-              )}
-            </div>
-
-            {movie.genres.length > 0 && (
-              <p className="text-sm text-muted-foreground">
-                Genres: {movie.genres.join(" • ")}
-              </p>
             )}
+            <div className="absolute inset-0 -z-10 bg-linear-to-br from-black via-[#10101A]/90 to-black" />
+            <div className="relative grid gap-10 p-6 lg:grid-cols-[minmax(0,2.25fr)_minmax(0,1fr)] lg:p-12">
+              <div className="space-y-6">
+                <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/70 backdrop-blur">
+                  <div className="relative aspect-video">
+                    {movie.youtubeId ? (
+                      <MediaController
+                        style={{
+                          width: "100%",
+                          aspectRatio: "16/9",
+                        }}
+                      >
+                        <ReactPlayer
+                          slot="media"
+                          src={`https://www.youtube.com/watch?v=${movie.youtubeId}`}
+                          controls={false}
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                          }}
+                          config={{
+                            youtube: {},
+                          }}
+                        ></ReactPlayer>
+                        <MediaControlBar>
+                          <MediaPlayButton />
+                          <MediaSeekBackwardButton seekOffset={10} />
+                          <MediaSeekForwardButton seekOffset={10} />
+                          <MediaTimeRange />
+                          <MediaTimeDisplay showDuration />
+                          <MediaMuteButton />
+                          <MediaVolumeRange />
+                          <MediaPlaybackRateButton />
+                          <MediaFullscreenButton />
+                        </MediaControlBar>
+                      </MediaController>
+                    ) : (
+                      <div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
+                        Trailer unavailable for this title.
+                      </div>
+                    )}
+                  </div>
+                </div>
 
-            <div className="space-y-2">
-              <h2 className="text-lg font-semibold">Synopsis</h2>
-              <p className="text-sm text-muted-foreground">
-                {movie.description || "No synopsis available yet."}
-              </p>
-            </div>
-
-            {movie.adminReview && (
-              <div className="space-y-2 rounded-lg border border-border bg-muted/20 p-4">
-                <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                  Admin review
-                </h2>
-                <p className="text-sm text-muted-foreground">
-                  {movie.adminReview}
-                </p>
-              </div>
-            )}
-
-            {movie.youtubeId && (
-              <div className="space-y-2">
-                <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-black">
-                  <ReactPlayer
-                    src={`https://www.youtube.com/watch?v=${movie.youtubeId}`}
-                    width="100%"
-                    height="100%"
-                    controls
-                    playing={true}
-                  />
+                <div className="flex flex-wrap items-center gap-3 text-xs uppercase tracking-[0.28em] text-white/50">
+                  <span className="rounded-full border border-white/15 px-3 py-1">
+                    {movie.runtimeMinutes
+                      ? `${movie.runtimeMinutes} minutes`
+                      : "Runtime unknown"}
+                  </span>
+                  {movieGenres.length > 0 && (
+                    <span className="rounded-full border border-white/10 px-3 py-1">
+                      {movieGenres.join(" • ")}
+                    </span>
+                  )}
+                  <span className="rounded-full border border-white/10 px-3 py-1">
+                    Streamly Premiere
+                  </span>
                 </div>
               </div>
-            )}
-          </div>
+
+              <aside className="space-y-8 text-sm text-muted-foreground">
+                <div className="space-y-3">
+                  <h1 className="text-4xl font-semibold tracking-tight text-foreground lg:text-5xl">
+                    {movie.title}
+                  </h1>
+                  <p className="text-base text-white/70">
+                    Streamly orchestrates LangChainGo insights with OpenAI to
+                    surface living rankings, personalised for every member.
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <h2 className="text-sm font-semibold uppercase tracking-[0.28em] text-muted-foreground">
+                    Synopsis
+                  </h2>
+                  <p className="leading-relaxed text-white/70">
+                    {movie.description || "No synopsis available yet."}
+                  </p>
+                </div>
+
+                {movie.adminReview && (
+                  <div className="space-y-3 rounded-2xl border border-white/10 bg-white/5 p-6">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-xs font-semibold uppercase tracking-[0.32em] text-muted-foreground">
+                        Admin review
+                      </h3>
+                      {movie.rankingName && (
+                        <span className="rounded-full border border-white/15 px-3 py-1 text-xs text-white/70">
+                          {movie.rankingName}
+                          {movie.rankingValue ? ` • ${movie.rankingValue}` : ""}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm leading-relaxed text-white/80">
+                      {movie.adminReview}
+                    </p>
+                  </div>
+                )}
+
+                {movie.youtubeId && (
+                  <Button
+                    asChild
+                    variant="secondary"
+                    className="w-full border border-white/20 bg-white/10 text-white hover:bg-white/20"
+                  >
+                    <Link
+                      href={`https://www.youtube.com/watch?v=${movie.youtubeId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Open trailer on YouTube
+                    </Link>
+                  </Button>
+                )}
+              </aside>
+            </div>
+          </section>
         </div>
       )}
     </div>
