@@ -10,25 +10,37 @@ const Carousel = () => {
   const [movies, setMovies] = useState<Movie[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  const loadMovies = async () => {
-    try {
-      setError(null);
-      const data = await api.getMovies();
-      setMovies(data);
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Failed to load movies";
-      setError(message);
-    }
-  };
-
   useEffect(() => {
+    let cancelled = false;
+
+    const loadMovies = async () => {
+      setError(null);
+      try {
+        const data = await api.getMovies();
+        if (!cancelled) {
+          setMovies(data);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          const message =
+            err instanceof Error ? err.message : "Failed to load movies";
+          setError(message);
+        }
+      }
+    };
+
     void loadMovies();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const splitIndex = Math.ceil(movies.length / 2);
   const firstRow = movies.slice(0, splitIndex);
   const secondRow = movies.slice(splitIndex);
+
+  console.log(movies);
 
   const MovieCard = ({
     posterPath,
@@ -47,7 +59,7 @@ const Carousel = () => {
       )}
     >
       <div className="relative h-80 w-full">
-        <Link href={`/movies/${imdbId}`}>
+        <Link href={`/movie/${imdbId}`}>
           {posterPath ? (
             <Image
               src={posterPath}
@@ -67,12 +79,12 @@ const Carousel = () => {
   );
 
   if (error) {
-    return <p className="text-sm text-destructive">{error}</p>;
+    return <p className="mt-6 text-sm text-destructive">{error}</p>;
   }
 
   if (movies.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground">
+      <p className="mt-6 text-sm text-muted-foreground">
         No movies carousel available.
       </p>
     );
@@ -80,7 +92,7 @@ const Carousel = () => {
 
   return (
     <div className="relative flex w-full flex-col items-center justify-center overflow-hidden mt-6">
-      <Marquee pauseOnHover className="[--duration:40s]">
+      <Marquee className="[--duration:40s]">
         {firstRow.map((movie) => (
           <MovieCard
             key={movie.imdbId}
@@ -90,7 +102,7 @@ const Carousel = () => {
         ))}
       </Marquee>
       {secondRow.length > 0 && (
-        <Marquee reverse pauseOnHover className="[--duration:40s]">
+        <Marquee reverse className="[--duration:40s]">
           {secondRow.map((movie) => (
             <MovieCard
               key={movie.imdbId}

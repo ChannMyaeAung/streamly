@@ -1,7 +1,9 @@
 "use client";
+import LoginPage from "@/app/login/page";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { Movie } from "@/lib/type";
+import { ArrowLeft } from "lucide-react";
 import {
   MediaControlBar,
   MediaController,
@@ -69,10 +71,17 @@ const SingleMoviePage = () => {
   const movieGenres = useMemo(() => movie?.genres ?? [], [movie?.genres]);
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-10 px-6 py-12">
-      <div className="flex items-center justify-between">
+    <div className="mx-auto w-full max-w-6xl space-y-10 py-8">
+      <div
+        className={` items-center text-center justify-between ${
+          !loading && error && status === 401 ? "hidden" : "flex"
+        }`}
+      >
         <Button asChild variant="outline">
-          <Link href="/movies">Back to catalogue</Link>
+          <Link href="/movies">
+            <ArrowLeft />
+            Back to catalogue
+          </Link>
         </Button>
         {movie?.rankingName && (
           <div className="rounded-full border border-border px-4 py-1 text-xs uppercase tracking-[0.24em] text-muted-foreground">
@@ -98,18 +107,9 @@ const SingleMoviePage = () => {
       )}
 
       {!loading && error && status === 401 && (
-        <div className="space-y-4 text-center">
-          <p className="text-sm text-muted-foreground">
-            Sign in to view this movie&apos;s protected details.
-          </p>
-          <div className="flex justify-center gap-3">
-            <Button asChild>
-              <Link href="/login">Sign in</Link>
-            </Button>
-            <Button asChild variant="outline">
-              <Link href="/register">Create account</Link>
-            </Button>
-          </div>
+        <div className="space-y-4 text-center flex items-center justify-center">
+          {" "}
+          <LoginPage minHeight={false} />
         </div>
       )}
 
@@ -201,6 +201,8 @@ const SingleMoviePage = () => {
                   <p className="text-base text-white/70">
                     Streamly orchestrates LangChainGo insights with OpenAI to
                     surface living rankings, personalised for every member.
+                    Ranking 1 - 5 are generated based on AI analysis of the
+                    admin review.
                   </p>
                 </div>
 

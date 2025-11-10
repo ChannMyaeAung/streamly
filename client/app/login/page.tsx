@@ -2,9 +2,13 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import AuthForm from "../components/auth/AuthForm";
 
-const LoginPage = () => {
+const LoginPage = ({ minHeight }: { minHeight: boolean }) => {
   return (
-    <div className="flex min-h-[calc(100vh-72px)] items-center justify-center bg-background px-4 py-12">
+    <div
+      className={`flex ${
+        minHeight ? "min-h-[calc(100vh-72px)]" : ""
+      } items-center justify-center bg-background`}
+    >
       <div className="space-y-6 text-center">
         <AuthForm mode="login" />
         <p>

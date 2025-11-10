@@ -1,7 +1,7 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
 import { Highlighter } from "@/components/ui/highlighter";
+import { RippleButton } from "@/components/ui/ripple-button";
 import { SparklesCore } from "@/components/ui/sparkles";
 import Link from "next/link";
 import Carousel from "./Carousel";
@@ -49,9 +49,9 @@ const Hero = () => {
 
       <div className="w-100 flex items-center justify-between gap-4 mt-8">
         <Link href={"/movies"} className="w-full">
-          <Button variant="secondary" className="w-full cursor-pointer">
+          <RippleButton rippleColor="#ADD8E6" className="w-full cursor-pointer">
             Browse Movies
-          </Button>
+          </RippleButton>
         </Link>
       </div>
 

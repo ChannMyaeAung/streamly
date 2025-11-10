@@ -39,7 +39,7 @@ export default function RootLayout({
           <AuthProvider>
             <main className="w-full mb-6">
               <Navbar />
-              <div className="px-8 py-4">{children}</div>
+              <div className="md:px-8 md:py-4 px-4">{children}</div>
             </main>
           </AuthProvider>
         </ThemeProvider>

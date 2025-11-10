@@ -14,9 +14,9 @@ import { useAuth } from "@/lib/auth-context";
 import { LogOut, Settings, Tv2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 
-const navItems = [
+const baseNavItems = [
   { name: "Home", href: "/" },
   { name: "Recommended", href: "/recommendedmovies" },
 ];
@@ -32,8 +32,16 @@ const Navbar = () => {
     await logout();
   }, [logout]);
 
+  const navItems = useMemo(() => {
+    const items = [...baseNavItems];
+    if (user?.role === "ADMIN") {
+      items.push({ name: "Update Review", href: "/update-review" });
+    }
+    return items;
+  }, [user?.role]);
+
   return (
-    <nav className="flex items-center justify-between px-8 py-4">
+    <nav className="flex items-center justify-between p-4 md:px-8 md:py-4">
       <div className="flex items-center gap-6">
         <Link href="/" className="flex items-center gap-2">
           <Image
@@ -106,6 +114,17 @@ const Navbar = () => {
                 <Settings className="h-[1.2rem] w-[1.2rem] mr-2" />
                 Settings
               </DropdownMenuItem>
+              {user.role === "ADMIN" && (
+                <DropdownMenuItem>
+                  <Link
+                    href="/update-review"
+                    className="flex items-center gap-1"
+                  >
+                    <Settings className="h-[1.2rem] w-[1.2rem] mr-2" />
+                    Update Review
+                  </Link>
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem
                 className="text-destructive"
                 onClick={handleLogout}

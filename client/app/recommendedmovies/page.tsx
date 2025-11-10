@@ -1,12 +1,11 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { Movie } from "@/lib/type";
-import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import MovieCard from "../components/MovieCard";
+import LoginPage from "../login/page";
 
 type StatusError = Error & { status?: number };
 
@@ -76,8 +75,8 @@ const RecommendedMovies = () => {
   const status = error?.status;
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-8 px-6 py-12">
-      <div className="space-y-2 text-center">
+    <div className="mx-auto w-full max-w-6xl space-y-8 py-12">
+      <div className="space-y-2 text-start">
         <h1 className="text-3xl font-bold">Recommended for you</h1>
         <p className="text-muted-foreground">
           These picks blend your favourite genres with the latest rankings.
@@ -91,17 +90,12 @@ const RecommendedMovies = () => {
       )}
 
       {!loading && error && status === 401 && !user && (
-        <div className="space-y-4 text-center">
+        <div className="space-y-4 text-start">
           <p className="text-sm text-muted-foreground">
             Sign in to see personalised recommendations.
           </p>
-          <div className="flex justify-center gap-3">
-            <Button asChild>
-              <Link href="/login">Sign in</Link>
-            </Button>
-            <Button asChild variant={"outline"}>
-              <Link href="/register">Create account</Link>
-            </Button>
+          <div className="flex justify-start gap-3">
+            <LoginPage minHeight={false} />
           </div>
         </div>
       )}
@@ -113,7 +107,7 @@ const RecommendedMovies = () => {
       )}
 
       {!loading && !error && movies.length > 0 && (
-        <div className="grid gap-6 sm:grid-cols-2">
+        <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
           {movies.map((movie) => (
             <MovieCard key={movie.imdbId} movie={movie} />
           ))}

@@ -32,7 +32,7 @@ const MoviesPage = () => {
 
   if (loading) {
     return (
-      <section className="space-y-6">
+      <section className=" space-y-6 w-full max-w-6xl mx-auto">
         <div className="h-8 w-48 animate-pulse rounded bg-muted" />
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {skeletonItems.map((_, index) => (
@@ -68,7 +68,7 @@ const MoviesPage = () => {
 
   if (!movies.length) {
     return (
-      <section className="space-y-2">
+      <section className="space-y-2 ">
         <h2 className="text-xl font-semibold">Movies</h2>
         <p className="text-sm text-muted-foreground">
           No movies available yet. Add data through the seed scripts or the
@@ -79,15 +79,15 @@ const MoviesPage = () => {
   }
 
   return (
-    <section className="space-y-6">
-      <header className="space-y-2">
+    <section className="space-y-6 w-full max-w-6xl mx-auto">
+      <header className="space-y-2 self-start">
         <p className="text-sm uppercase tracking-wide text-muted-foreground">
           Browse the catalogue
         </p>
         <h2 className="text-2xl font-semibold text-foreground">Movies</h2>
       </header>
 
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
         {movies.map((movie) => (
           <MovieCard key={movie.imdbId} movie={movie} />
         ))}

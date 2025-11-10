@@ -2,6 +2,10 @@ import { Genre, LoginPayload, Movie, RegisterPayload, User } from "./type";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
+const MOVIES_CACHE_TTL = 3 * 60 * 1000;
+let moviesCache: { data: Movie[]; expiresAt: number } | null = null;
+let moviesPromise: Promise<Movie[]> | null = null;
+
 type ApiError = Error & { status?: number; payload?: unknown };
 
 const defaultHeaders = new Headers({
@@ -113,8 +117,33 @@ export const api = {
 
   // Load all movies and normalize their structure for UI consumption.
   async getMovies(): Promise<Movie[]> {
-    const data = await request<any[]>("/movies");
-    return data.map(normalizeMovie);
+    const now = Date.now();
+    if (moviesCache && moviesCache.expiresAt > now) {
+      return moviesCache.data;
+    }
+
+    if (!moviesPromise) {
+      moviesPromise = (async () => {
+        const raw = await request<any[]>("/movies");
+        return raw.map(normalizeMovie);
+      })();
+    }
+
+    try {
+      const normalized = await moviesPromise;
+      moviesCache = {
+        data: normalized,
+        expiresAt: Date.now() + MOVIES_CACHE_TTL,
+      };
+      return normalized;
+    } catch (error) {
+      if (!moviesCache || moviesCache.expiresAt <= now) {
+        moviesCache = null;
+      }
+      throw error;
+    } finally {
+      moviesPromise = null;
+    }
   },
 
   // Fetch an individual movie by IMDb id with fresh data from the server.
@@ -133,6 +162,16 @@ export const api = {
       cache: "no-store",
     });
     return data.map(normalizeMovie);
+  },
+
+  async updateAdminReview(imdbId: string, adminReview: string) {
+    return request<{ ranking_name: string; admin_review: string }>(
+      `/updatereview/${imdbId}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ admin_review: adminReview }),
+      }
+    );
   },
 
   // Authenticate a user and return the profile details supplied by the API.
