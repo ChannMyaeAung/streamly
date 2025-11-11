@@ -53,6 +53,11 @@ const Hero = () => {
             Browse Movies
           </RippleButton>
         </Link>
+        <Link href={"/addmovie"} className="w-full">
+          <RippleButton rippleColor="#ADD8E6" className="w-full cursor-pointer">
+            Add Movies
+          </RippleButton>
+        </Link>
       </div>
 
       <Carousel />

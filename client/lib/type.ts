@@ -16,6 +16,25 @@ export interface Movie {
   runtimeMinutes?: number;
 }
 
+export interface AddMoviePayload {
+  imdb_id: string;
+  title: string;
+  poster_path: string;
+  youtube_id: string;
+  genre: Genre[];
+  admin_review?: string;
+  ranking: {
+    ranking_value: number;
+    ranking_name: string;
+  };
+}
+
+export interface AdminAccessRequestPayload {
+  name: string;
+  email: string;
+  comments: string;
+}
+
 export interface LoginPayload {
   email: string;
   password: string;

@@ -23,7 +23,7 @@ const MovieCard = ({ movie, className }: MovieProps) => {
     imdbId,
     title,
     posterPath,
-    description,
+    adminReview,
     genres,
     rankingName,
     rankingValue,
@@ -63,7 +63,7 @@ const MovieCard = ({ movie, className }: MovieProps) => {
             )}
             <CardDescription>
               <span className="font-semibold text-gray-50">Admin Review:</span>{" "}
-              {description || "No description available."}
+              {adminReview || "No description available."}
             </CardDescription>
           </CardContent>
           <CardFooter className="space-x-4">

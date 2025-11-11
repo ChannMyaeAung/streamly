@@ -30,6 +30,13 @@ func GetMovies(client *mongo.Client) gin.HandlerFunc {
 		ctx, cancel := context.WithTimeout(c, 100*time.Second)
 		defer cancel()
 
+		if cached, hit, err := utils.FetchMoviesFromCache(ctx); err == nil && hit {
+			c.JSON(http.StatusOK, cached)
+			return
+		} else if err != nil {
+			log.Printf("cache: unable to fetch movies cache: %v\n", err)
+		}
+
 		var movieCollection *mongo.Collection = database.OpenCollection("movies", client)
 
 		var movies []models.Movie
@@ -45,6 +52,8 @@ func GetMovies(client *mongo.Client) gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error occurred while decoding movies"})
 			return
 		}
+
+		utils.StoreMoviesCache(ctx, movies)
 
 		c.JSON(http.StatusOK, movies)
 	}
@@ -101,6 +110,11 @@ func AddMovie(client *mongo.Client) gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error occurred while adding movie"})
 			return
 		}
+
+		invalidateCtx, invalidateCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer invalidateCancel()
+		utils.InvalidateMoviesCache(invalidateCtx)
+		utils.InvalidateAllRecommendations(invalidateCtx)
 		c.JSON(http.StatusOK, result)
 	}
 }
@@ -178,6 +192,11 @@ func AdminReviewUpdate(client *mongo.Client) gin.HandlerFunc {
 
 		resp.RankingName = sentiment
 		resp.AdminReview = req.AdminReview
+
+		invalidateCtx, invalidateCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer invalidateCancel()
+		utils.InvalidateMoviesCache(invalidateCtx)
+		utils.InvalidateAllRecommendations(invalidateCtx)
 
 		c.JSON(http.StatusOK, resp)
 	}
@@ -280,6 +299,14 @@ func GetRecommendedMovies(client *mongo.Client) gin.HandlerFunc {
 			return
 		}
 
+		cacheCtx := context.Background()
+		if cached, hit, cacheErr := utils.FetchRecommendationsFromCache(cacheCtx, userId); cacheErr == nil && hit {
+			c.JSON(http.StatusOK, cached)
+			return
+		} else if cacheErr != nil {
+			log.Printf("cache: unable to fetch recommendations cache for %s: %v\n", userId, cacheErr)
+		}
+
 		// Pull the user's favourited genres; returns names like "Comedy", "Drama".
 		favourite_genres, err := GetUsersFavouriteGenres(userId, client, c)
 		if err != nil {
@@ -337,6 +364,8 @@ func GetRecommendedMovies(client *mongo.Client) gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error occurred while decoding recommended movies"})
 			return
 		}
+
+		utils.StoreRecommendationsCache(cacheCtx, userId, recommendedMovies)
 		c.JSON(http.StatusOK, recommendedMovies)
 	}
 }

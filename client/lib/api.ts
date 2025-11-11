@@ -1,10 +1,28 @@
-import { Genre, LoginPayload, Movie, RegisterPayload, User } from "./type";
+import {
+  AddMoviePayload,
+  AdminAccessRequestPayload,
+  Genre,
+  LoginPayload,
+  Movie,
+  RegisterPayload,
+  User,
+} from "./type";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
-const MOVIES_CACHE_TTL = 3 * 60 * 1000;
+// 5 Minutes TTL
+const MOVIES_CACHE_TTL = 5 * 60 * 1000;
+const RECOMMENDED_CACHE_TTL = 5 * 60 * 1000;
+
 let moviesCache: { data: Movie[]; expiresAt: number } | null = null;
 let moviesPromise: Promise<Movie[]> | null = null;
+
+// per-user cache for recommended movies
+const recommendedCache = new Map<
+  string,
+  { data: Movie[]; expiresAt: number }
+>();
+const recommendedPromises = new Map<string, Promise<Movie[]>>();
 
 type ApiError = Error & { status?: number; payload?: unknown };
 
@@ -12,18 +30,28 @@ const defaultHeaders = new Headers({
   "Content-Type": "application/json",
 });
 
-// Pull a persisted access token from localStorage so API calls can authorize without cookies.
-function getStoredAccessToken(): string | null {
+function getStoredAuthPayload(): User | null {
   if (typeof window === "undefined") return null;
   try {
     const raw = localStorage.getItem("streamly:user");
     if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    const token = parsed?.token;
-    return typeof token === "string" && token.length > 0 ? token : null;
+    return JSON.parse(raw) as User;
   } catch {
     return null;
   }
+}
+
+// Pull a persisted access token from localStorage so API calls can authorize without cookies.
+function getStoredAccessToken(): string | null {
+  const payload = getStoredAuthPayload();
+  const token = payload?.token;
+  return typeof token === "string" && token.length > 0 ? token : null;
+}
+
+function getStoredUserId(): string | null {
+  const payload = getStoredAuthPayload();
+  const userId = payload?.user_id;
+  return typeof userId === "string" && userId.length > 0 ? userId : null;
 }
 
 // Wrap fetch to enforce credentials, merge headers, and surface normalized errors.
@@ -157,29 +185,108 @@ export const api = {
 
   // Get recommendations for the current user, retrying normalization per item.
   async getRecommendedMovies(): Promise<Movie[]> {
-    const data = await request<any[]>("/recommendedmovies", {
-      method: "GET",
-      cache: "no-store",
+    const userId = getStoredUserId();
+    if (!userId) {
+      const data = await request<any[]>("/recommendedmovies", {
+        method: "GET",
+        cache: "no-store",
+      });
+      return data.map(normalizeMovie);
+    }
+
+    const now = Date.now();
+    const cached = recommendedCache.get(userId);
+    if (cached && cached.expiresAt > now) {
+      return cached.data;
+    }
+
+    let promise = recommendedPromises.get(userId);
+    if (!promise) {
+      promise = (async () => {
+        const raw = await request<any[]>("/recommendedmovies", {
+          method: "GET",
+          cache: "no-store",
+        });
+        return raw.map(normalizeMovie);
+      })();
+      recommendedPromises.set(userId, promise);
+    }
+
+    try {
+      const normalized = await promise;
+      recommendedCache.set(userId, {
+        data: normalized,
+        expiresAt: Date.now() + RECOMMENDED_CACHE_TTL,
+      });
+
+      return normalized;
+    } catch (error) {
+      const stale = recommendedCache.get(userId);
+      if (!stale || stale.expiresAt <= now) {
+        recommendedCache.delete(userId);
+      }
+      throw error;
+    } finally {
+      recommendedPromises.delete(userId);
+    }
+  },
+
+  async addMovie(payload: AddMoviePayload) {
+    const response = await request<any>("/addmovie", {
+      method: "POST",
+      body: JSON.stringify(payload),
     });
-    return data.map(normalizeMovie);
+    moviesCache = null;
+    recommendedCache.clear();
+    recommendedPromises.clear();
+    return response;
   },
 
   async updateAdminReview(imdbId: string, adminReview: string) {
-    return request<{ ranking_name: string; admin_review: string }>(
-      `/updatereview/${imdbId}`,
-      {
-        method: "PATCH",
-        body: JSON.stringify({ admin_review: adminReview }),
-      }
-    );
+    const response = await request<{
+      ranking_name: string;
+      admin_review: string;
+    }>(`/updatereview/${imdbId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ admin_review: adminReview }),
+    });
+    moviesCache = null;
+    recommendedCache.clear();
+    recommendedPromises.clear();
+    return response;
+  },
+
+  async submitAdminAccessRequest(payload: AdminAccessRequestPayload) {
+    const res = await fetch("/api/admin-request", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const message =
+        typeof data?.message === "string"
+          ? data.message
+          : "Unable to submit request.";
+      throw new Error(message);
+    }
+
+    return data as { message: string };
   },
 
   // Authenticate a user and return the profile details supplied by the API.
   async login(payload: LoginPayload): Promise<User> {
-    return request<User>("/login", {
+    const user = await request<User>("/login", {
       method: "POST",
       body: JSON.stringify(payload),
     });
+    moviesCache = null;
+    recommendedCache.clear();
+    recommendedPromises.clear();
+    return user;
   },
 
   // Register a new user account with role and genre preferences.
@@ -199,9 +306,15 @@ export const api = {
 
   // Revoke the active session by informing the server of the current user id.
   async logout(userId: string) {
-    return request<{ message: string }>("/logout", {
-      method: "POST",
-      body: JSON.stringify({ user_id: userId }),
-    });
+    try {
+      return await request<{ message: string }>("/logout", {
+        method: "POST",
+        body: JSON.stringify({ user_id: userId }),
+      });
+    } finally {
+      moviesCache = null;
+      recommendedCache.clear();
+      recommendedPromises.clear();
+    }
   },
 };
