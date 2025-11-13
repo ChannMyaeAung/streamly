@@ -227,7 +227,8 @@ const AddMovie = () => {
     setRequestSubmitting(true);
     setRequestFeedback(null);
 
-    const form = new FormData(event.currentTarget);
+    const targetForm = event.currentTarget;
+    const form = new FormData(targetForm);
     const payload = {
       name: String(form.get("name") ?? ""),
       email: String(form.get("email") ?? ""),
@@ -239,7 +240,7 @@ const AddMovie = () => {
       setRequestFeedback(
         "Thanks! We received your request and will respond by email."
       );
-      event.currentTarget.reset();
+      targetForm.reset();
     } catch (error) {
       const message =
         error instanceof Error
