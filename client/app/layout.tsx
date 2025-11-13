@@ -2,6 +2,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from "@/lib/auth-context";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { ToastContainer } from "react-toastify";
 import Navbar from "./components/Navbar";
 import "./globals.css";
 
@@ -41,6 +42,7 @@ export default function RootLayout({
               <Navbar />
               <div className="md:px-8 md:py-4 px-4">{children}</div>
             </main>
+            <ToastContainer position="bottom-right" />
           </AuthProvider>
         </ThemeProvider>
       </body>

@@ -15,6 +15,70 @@ import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { AddMoviePayload } from "@/lib/type";
+import { toast } from "react-toastify";
+
+const YOUTUBE_ID_REGEX = /^[a-zA-Z0-9_-]{11}$/;
+
+// Normalizes a pasted YouTube link (watch, share, embed, shorts) into the 11-char video ID.
+function extractYouTubeId(input: string): string | null {
+  // Trim surrounding whitespace so we work with a clean value.
+  const value = input.trim();
+  // Abort when nothing remains after trimming.
+  if (!value) {
+    return null;
+  }
+
+  // Directly accept inputs that already look like canonical 11-char IDs.
+  if (YOUTUBE_ID_REGEX.test(value)) {
+    return value;
+  }
+
+  try {
+    // Parse the string as a URL to inspect hostname and path segments.
+    const url = new URL(value);
+    // Strip the common www prefix for easier comparison (e.g. www.youtube.com).
+    const host = url.hostname.replace(/^www\./, "");
+
+    // Handle youtu.be short links where the ID is the remainder of the path.
+    if (host === "youtu.be") {
+      // Drop the leading slash to expose the raw candidate ID.
+      const id = url.pathname.slice(1);
+      // Confirm the candidate is a valid YouTube ID before returning it.
+      return YOUTUBE_ID_REGEX.test(id) ? id : null;
+    }
+
+    // Accept youtube.com and any of its subdomains (e.g. music.youtube.com).
+    const isYouTubeDomain =
+      host === "youtube.com" || host.endsWith(".youtube.com");
+
+    if (isYouTubeDomain) {
+      // The standard watch page stores the ID in the v query parameter.
+      if (url.pathname === "/watch") {
+        // Pull the v parameter, defaulting to an empty string if absent.
+        const id = url.searchParams.get("v") ?? "";
+        // Validate the extracted v value before returning it.
+        return YOUTUBE_ID_REGEX.test(id) ? id : null;
+      }
+
+      // Embed, shorts, and live URLs place the ID in the second path segment.
+      const pathParts = url.pathname.split("/").filter(Boolean);
+      if (
+        pathParts.length >= 2 &&
+        ["embed", "shorts", "live"].includes(pathParts[0])
+      ) {
+        // Use the second segment as the candidate ID (e.g. /embed/id, /shorts/id).
+        const id = pathParts[1];
+        // Return the candidate only when it matches the ID pattern.
+        return YOUTUBE_ID_REGEX.test(id) ? id : null;
+      }
+    }
+  } catch (error) {
+    // Non-URL inputs reach here; they fall through to the null return value.
+  }
+
+  // Signal failure to extract the ID so the caller can surface a validation error.
+  return null;
+}
 
 type AdminMovieForm = {
   imdb_id: string;
@@ -43,7 +107,6 @@ const AddMovie = () => {
 
   const [adminForm, setAdminForm] = useState<AdminMovieForm>(emptyAdminForm);
   const [movieSubmitting, setMovieSubmitting] = useState(false);
-  const [movieFeedback, setMovieFeedback] = useState<string | null>(null);
 
   const [requestSubmitting, setRequestSubmitting] = useState(false);
   const [requestFeedback, setRequestFeedback] = useState<string | null>(null);
@@ -63,7 +126,6 @@ const AddMovie = () => {
   const handleAddMovie = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setMovieSubmitting(true);
-    setMovieFeedback(null);
 
     try {
       const rankingValueNumber = Number.parseInt(adminForm.ranking_value, 10);
@@ -109,11 +171,16 @@ const AddMovie = () => {
         };
       });
 
+      const youtubeId = extractYouTubeId(adminForm.youtube_id);
+      if (!youtubeId) {
+        throw new Error("Enter a valid YouTube URL or video ID.");
+      }
+
       const payload: AddMoviePayload = {
         imdb_id: adminForm.imdb_id.trim(),
         title: adminForm.title.trim(),
         poster_path: adminForm.poster_path.trim(),
-        youtube_id: adminForm.youtube_id.trim(),
+        youtube_id: youtubeId,
         genre: parsedGenres,
         admin_review: adminForm.admin_review.trim() || undefined,
         ranking: {
@@ -138,14 +205,16 @@ const AddMovie = () => {
       }
 
       await api.addMovie(payload);
-      setMovieFeedback("Movie added successfully.");
+
+      toast.success("Movie added successfully.");
       setAdminForm(emptyAdminForm);
     } catch (error) {
       const message =
         error instanceof Error
           ? error.message
           : "Unable to add movie right now.";
-      setMovieFeedback(message);
+
+      toast.error(message);
     } finally {
       setMovieSubmitting(false);
     }
@@ -311,17 +380,18 @@ const AddMovie = () => {
           </Field>
 
           <Field>
-            <FieldLabel htmlFor="youtube_id">YouTube trailer ID</FieldLabel>
+            <FieldLabel htmlFor="youtube_id">YouTube trailer link</FieldLabel>
             <Input
               id="youtube_id"
               name="youtube_id"
               value={adminForm.youtube_id}
               onChange={handleAdminInputChange}
-              placeholder="dQw4w9WgXcQ"
+              placeholder="https://www.youtube.com/watch?v=dQw4w9WgXcQ"
               required
             />
             <FieldDescription>
-              Provide the ID only, not the full URL.
+              Paste the full YouTube URL or the 11-character video ID.
+              We&apos;ll extract the ID for you.
             </FieldDescription>
           </Field>
 
@@ -335,6 +405,10 @@ const AddMovie = () => {
               placeholder="Excellent"
               required
             />
+            <FieldDescription>
+              Put the number based on the number you've chosen. <br /> 1.
+              Excellent, 2. Good , 3. Okay, 4. Bad, 5. Terrible
+            </FieldDescription>
           </Field>
 
           <Field>
@@ -344,7 +418,7 @@ const AddMovie = () => {
               name="ranking_value"
               type="number"
               min={1}
-              max={999}
+              max={5}
               value={adminForm.ranking_value}
               onChange={handleAdminInputChange}
               placeholder="1"
@@ -362,12 +436,17 @@ const AddMovie = () => {
               name="genres"
               value={adminForm.genres}
               onChange={handleAdminInputChange}
-              placeholder="1:Drama, 2:Thriller"
+              placeholder="2:Drama, 2:Thriller"
               required
             />
             <FieldDescription>
               Provide a comma-separated list. Optionally prefix each genre with
               an ID using the format <code>id:name</code>.
+              <br />
+              <code>
+                1:Comedy, 2:Drama, 3:Western, 4:Fantasy, 5:Thriller, 6: Sci-Fi,
+                7:Action, 8:Adventure, 9:Crime
+              </code>
             </FieldDescription>
           </Field>
 
@@ -395,16 +474,11 @@ const AddMovie = () => {
             variant="outline"
             onClick={() => {
               setAdminForm(emptyAdminForm);
-              setMovieFeedback(null);
             }}
           >
             Reset form
           </Button>
         </div>
-
-        {movieFeedback && (
-          <p className="mt-4 text-sm text-muted-foreground">{movieFeedback}</p>
-        )}
       </form>
     </main>
   );

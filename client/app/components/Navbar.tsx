@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth-context";
-import { LogOut, Settings, Tv2 } from "lucide-react";
+import { LogOut, PlusIcon, Settings, Tv2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useMemo } from "react";
@@ -101,6 +101,14 @@ const Navbar = () => {
                 </span>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
+              {user.role === "ADMIN" && (
+                <DropdownMenuItem>
+                  <Link href={"/addmovie"} className="flex items-center gap-1">
+                    <PlusIcon className="h-[1.2rem] w-[1.2rem] mr-2" />
+                    Add Movies
+                  </Link>
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem>
                 <Link
                   href={"/recommendedmovies"}
