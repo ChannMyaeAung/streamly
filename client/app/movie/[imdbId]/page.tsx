@@ -121,17 +121,6 @@ const SingleMoviePage = () => {
       {!loading && movie && (
         <div className="space-y-12">
           <section className="relative overflow-hidden rounded-3xl border border-border bg-[#0B0B0F] shadow-[0_30px_120px_-60px_rgba(15,15,26,0.8)]">
-            {/* {movie.posterPath && (
-              <Image
-                src={movie.posterPath}
-                alt={`${movie.title} backdrop`}
-                fill
-                className="absolute inset-0 -z-10 h-full w-full scale-110 transform object-cover opacity-30 blur-[60px]"
-                sizes="(max-width: 1024px) 100vw, 1200px"
-                priority
-              />
-            )}
-            <div className="absolute inset-0 -z-10 bg-linear-to-br from-black via-[#10101A]/90 to-black" /> */}
             <div className="relative p-4 space-y-6">
               <div className="space-y-6">
                 <div className="relative overflow-hidden rounded-2xl border w-full border-white/10 bg-black/70 backdrop-blur">

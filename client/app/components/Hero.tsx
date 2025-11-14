@@ -8,7 +8,7 @@ import Carousel from "./Carousel";
 
 const Hero = () => {
   return (
-    <div className="h-screen w-full bg-background flex flex-col items-center justify-center overflow-hidden rounded-md">
+    <div className="h-full w-full bg-background flex flex-col items-center justify-center overflow-hidden rounded-md">
       <h1 className="md:text-7xl text-3xl lg:text-9xl font-bold text-center text-white relative z-20">
         Streamly
       </h1>
@@ -30,10 +30,10 @@ const Hero = () => {
         />
 
         {/* Radial Gradient to prevent sharp edges */}
-        <div className="absolute inset-0 w-full h-full bg-background mask-[radial-gradient(350px_200px_at_top,transparent_20%,white)]"></div>
+        <div className="absolute inset-0 w-full h-full bg-background mask-[radial-gradient(350px_200px_at_top,transparent_20%,white)] hidden sm:block"></div>
       </div>
-      <div className="w-160 mx-auto text-center">
-        <h4 className="scroll-m-20 text-center w-160 text-xl font-semibold tracking-tight">
+      <div className="w-full max-w-160 h-full mx-auto text-center">
+        <h4 className="scroll-m-20 text-center w-full max-w-160 text-xl font-semibold tracking-tight">
           Streamly - Just a better place for watching online moves.
         </h4>
         <p className="leading-7 not-first:mt-6">
@@ -47,7 +47,7 @@ const Hero = () => {
         </p>
       </div>
 
-      <div className="w-100 flex items-center justify-between gap-4 mt-8">
+      <div className="max-w-100 w-full flex flex-col sm:flex-row items-center justify-between gap-4 mt-8">
         <Link href={"/movies"} className="w-full">
           <RippleButton rippleColor="#ADD8E6" className="w-full cursor-pointer">
             Browse Movies

@@ -133,7 +133,7 @@ export function normalizeMovie(raw: any): Movie {
     genres,
     adminReview: raw.admin_review ?? undefined,
     youtubeId: raw.youtube_id ?? undefined,
-    runtimeMinutes: raw.runtime_minutes ?? raw.runtime ?? undefined,
+    runtimeMinutes: raw.runtime ?? undefined,
   };
 }
 
