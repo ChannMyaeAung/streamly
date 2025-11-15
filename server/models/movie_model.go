@@ -2,6 +2,7 @@ package models
 
 import (
 	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/bson/primitive"
 )
 
 type Genre struct {
@@ -15,12 +16,15 @@ type Ranking struct {
 }
 
 type Movie struct {
-	ID          bson.ObjectID `bson:"_id,omitempty" json:"_id,omitempty"`
-	ImdbID      string        `bson:"imdb_id" json:"imdb_id" validate:"required"`
-	Title       string        `bson:"title" json:"title" validate:"required,min=2,max=500"`
-	PosterPath  string        `bson:"poster_path" json:"poster_path" validate:"required,url"`
-	YouTubeID   string        `bson:"youtube_id" json:"youtube_id" validate:"required"`
-	Genre       []Genre       `bson:"genre" json:"genre" validate:"required,dive"`
-	AdminReview string        `bson:"admin_review" json:"admin_review"`
-	Ranking     Ranking       `bson:"ranking" json:"ranking" validate:"required"`
+	ID          bson.ObjectID      `bson:"_id,omitempty" json:"_id,omitempty"`
+	ImdbID      string             `bson:"imdb_id" json:"imdb_id" validate:"required"`
+	Title       string             `bson:"title" json:"title" validate:"required,min=2,max=500"`
+	PosterPath  string             `bson:"poster_path" json:"poster_path" validate:"required,url"`
+	YouTubeID   string             `bson:"youtube_id" json:"youtube_id" validate:"required"`
+	Genre       []Genre            `bson:"genre" json:"genre" validate:"required,dive"`
+	AdminReview string             `bson:"admin_review" json:"admin_review"`
+	Ranking     Ranking            `bson:"ranking" json:"ranking" validate:"required"`
+	Runtime     int                `bson:"runtime" json:"runtime" validate:"required,min=1"` // in minutes
+	CreatedAt   primitive.DateTime `bson:"created_at" json:"created_at"`
+	UpdatedAt   primitive.DateTime `bson:"updated_at" json:"updated_at"`
 }

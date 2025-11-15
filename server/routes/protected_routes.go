@@ -14,4 +14,5 @@ func SetUpProtectedRoutes(router *gin.Engine, client *mongo.Client) {
 	router.POST("/addmovie", controller.AddMovie(client))
 	router.GET("/recommendedmovies", controller.GetRecommendedMovies(client))
 	router.PATCH("/updatereview/:imdb_id", controller.AdminReviewUpdate(client))
+	router.DELETE("/deletemovie/:imdb_id", controller.DeleteMovie(client))
 }

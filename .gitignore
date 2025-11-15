@@ -21,3 +21,4 @@ server/.env
 .env
 *.env
 
+.seed-data

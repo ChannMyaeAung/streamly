@@ -1,9 +1,16 @@
 "use client";
 
+import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { Movie } from "@/lib/type";
-import { useCallback, useEffect, useState } from "react";
+import {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import MovieCard from "../components/MovieCard";
 import LoginPage from "../login/page";
 
@@ -13,8 +20,10 @@ const RecommendedMovies = () => {
   const [movies, setMovies] = useState<Movie[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<StatusError | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
   const { user, loading: authLoading, logout } = useAuth();
 
+  // Fetch recommended movies for the signed-in user, retrying refresh if the token expired.
   const load = useCallback(async () => {
     if (!user) return;
 
@@ -72,23 +81,51 @@ const RecommendedMovies = () => {
     void load();
   }, [authLoading, user, load]);
 
+  // Smooth the search input updates to avoid filtering on every keypress.
+  const deferredSearch = useDeferredValue(searchTerm);
+
+  // Filter recommendations by title when a search query is present.
+  const filteredMovies = useMemo(() => {
+    const query = deferredSearch.trim().toLowerCase();
+    if (!query) {
+      return movies;
+    }
+
+    return movies.filter((movie) => {
+      const titleMatch = movie.title.toLowerCase().includes(query);
+      return titleMatch;
+    });
+  }, [movies, deferredSearch]);
+
   const status = error?.status;
+  const hasActiveSearch = searchTerm.trim().length > 0;
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-8 py-12">
-      <div className="space-y-2 text-start">
-        <h1 className="text-3xl font-bold">Recommended for you</h1>
-        <p className="text-muted-foreground">
-          These picks blend your favourite genres with the latest rankings.
-        </p>
+      <div className="flex items-center justify-between flex-row-reverse">
+        <div className="md:w-80">
+          <Input
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search movies by title..."
+          />
+        </div>
+        <div className="space-y-2 text-start">
+          <h1 className="text-3xl font-bold">Recommended for you</h1>
+          <p className="text-muted-foreground">
+            These picks blend your favourite genres with the latest rankings.
+          </p>
+        </div>
       </div>
 
+      {/* Show a lightweight loading state while personalised picks load. */}
       {loading && (
         <div className="space-y-2 text-center text-sm text-muted-foreground">
           Fetching personalised titles...
         </div>
       )}
 
+      {/* Prompt unauthenticated visitors to sign in when recommendations require auth. */}
       {!loading && error && status === 401 && !user && (
         <div className="space-y-4 text-start">
           <p className="text-sm text-muted-foreground">
@@ -100,26 +137,46 @@ const RecommendedMovies = () => {
         </div>
       )}
 
+      {/* Surface any non-auth errors returned by the recommendation endpoint. */}
       {!loading && error && status !== 401 && (
         <div className="rounded-md border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
           {error.message}
         </div>
       )}
 
-      {!loading && !error && movies.length > 0 && (
+      {/* Render the recommendation grid once data is available. */}
+      {!loading && !error && filteredMovies.length > 0 && (
         <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-          {movies.map((movie) => (
-            <MovieCard key={movie.imdbId} movie={movie} />
+          {filteredMovies.map((movie) => (
+            <MovieCard
+              key={movie.imdbId}
+              movie={movie}
+              onDelete={(id) =>
+                setMovies((current) => current.filter((m) => m.imdbId !== id))
+              }
+            />
           ))}
         </div>
       )}
 
-      {!loading && !error && !movies.length && user && (
-        <p className="text-center text-sm text-muted-foreground">
-          We don't have enough data to recommend movies yet. Rate a few titles
-          or refresh later.
-        </p>
+      {/* Let users know when their search returns no matches. */}
+      {!loading && !error && hasActiveSearch && filteredMovies.length === 0 && (
+        <div>
+          No recommendations match "{searchTerm}". Try a different title.
+        </div>
       )}
+
+      {/* Encourage newly signed-in users to engage if we lack enough data to recommend titles. */}
+      {!loading &&
+        !error &&
+        !hasActiveSearch &&
+        movies.length === 0 &&
+        user && (
+          <p className="text-center text-sm text-muted-foreground">
+            We don't have enough data to recommend movies yet. Rate a few titles
+            or refresh later.
+          </p>
+        )}
     </div>
   );
 };

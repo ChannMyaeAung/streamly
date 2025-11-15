@@ -41,7 +41,9 @@ func GetMovies(client *mongo.Client) gin.HandlerFunc {
 
 		var movies []models.Movie
 
-		cursor, err := movieCollection.Find(ctx, bson.M{})
+		findOpts := options.Find().SetSort(bson.D{{Key: "created_at", Value: -1}})
+
+		cursor, err := movieCollection.Find(ctx, bson.D{}, findOpts)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error occurred while fetching movies"})
 
@@ -444,5 +446,48 @@ func GetGenres(client *mongo.Client) gin.HandlerFunc {
 			return
 		}
 		c.JSON(http.StatusOK, genres)
+	}
+}
+
+func DeleteMovie(client *mongo.Client) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		role, err := utils.GetRoleFromContext(c)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Role not found."})
+			return
+		}
+
+		if role != "ADMIN" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Only admins can delete movies."})
+			return
+		}
+
+		movieID := c.Param("imdb_id")
+		if movieID == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Movie ID is required."})
+			return
+		}
+
+		ctx, cancel := context.WithTimeout(c, 100*time.Second)
+		defer cancel()
+
+		movieCollection := database.OpenCollection("movies", client)
+
+		result, err := movieCollection.DeleteOne(ctx, bson.D{{Key: "imdb_id", Value: movieID}})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error occurred while deleting movie."})
+			return
+		}
+		if result.DeletedCount == 0 {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Movie not found."})
+			return
+		}
+
+		invalidateCtx, invalidateCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer invalidateCancel()
+		utils.InvalidateMoviesCache(invalidateCtx)
+		utils.InvalidateAllRecommendations(invalidateCtx)
+
+		c.Status(http.StatusNoContent)
 	}
 }

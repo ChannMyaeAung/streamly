@@ -277,6 +277,13 @@ export const api = {
     return data as { message: string };
   },
 
+  async deleteMovie(imdbId: string) {
+    await request<void>(`/deletemovie/${imdbId}`, { method: "DELETE" });
+    moviesCache = null;
+    recommendedCache.clear();
+    recommendedPromises.clear();
+  },
+
   // Authenticate a user and return the profile details supplied by the API.
   async login(payload: LoginPayload): Promise<User> {
     const user = await request<User>("/login", {

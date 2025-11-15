@@ -27,6 +27,7 @@ export interface AddMoviePayload {
     ranking_value: number;
     ranking_name: string;
   };
+  runtime: number;
 }
 
 export interface AdminAccessRequestPayload {

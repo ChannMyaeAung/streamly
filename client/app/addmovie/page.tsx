@@ -89,6 +89,7 @@ type AdminMovieForm = {
   ranking_value: string;
   admin_review: string;
   genres: string;
+  runtime: string;
 };
 
 const emptyAdminForm: AdminMovieForm = {
@@ -100,6 +101,7 @@ const emptyAdminForm: AdminMovieForm = {
   ranking_value: "",
   admin_review: "",
   genres: "",
+  runtime: "",
 };
 
 const AddMovie = () => {
@@ -131,6 +133,11 @@ const AddMovie = () => {
       const rankingValueNumber = Number.parseInt(adminForm.ranking_value, 10);
       if (Number.isNaN(rankingValueNumber)) {
         throw new Error("Ranking value must be a number.");
+      }
+
+      const runtimeMinutes = Number.parseInt(adminForm.runtime, 10);
+      if (Number.isNaN(runtimeMinutes) || runtimeMinutes <= 0) {
+        throw new Error("Runtime must be a positive number of minutes.");
       }
 
       const genreEntries = adminForm.genres
@@ -187,6 +194,7 @@ const AddMovie = () => {
           ranking_value: rankingValueNumber,
           ranking_name: adminForm.ranking_name.trim(),
         },
+        runtime: runtimeMinutes,
       };
 
       if (
@@ -363,6 +371,21 @@ const AddMovie = () => {
               placeholder="Movie title"
               required
             />
+          </Field>
+
+          <Field>
+            <FieldLabel htmlFor="runtime">Duration (in minutes)</FieldLabel>
+            <Input
+              id="runtime"
+              name="runtime"
+              value={adminForm.runtime}
+              onChange={handleAdminInputChange}
+              placeholder="E.g. 140 minutes"
+              required
+            />
+            <FieldDescription>
+              Enter the runtime as a whole number in minutes, e.g. 140.
+            </FieldDescription>
           </Field>
 
           <Field>

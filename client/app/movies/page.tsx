@@ -1,8 +1,18 @@
 "use client";
+
+import {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
 import { Movie } from "@/lib/type";
-import { useCallback, useEffect, useState } from "react";
+
 import MovieCard from "../components/MovieCard";
 
 const skeletonItems = Array.from({ length: 6 });
@@ -11,6 +21,22 @@ const MoviesPage = () => {
   const [movies, setMovies] = useState<Movie[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const deferredSearch = useDeferredValue(searchTerm);
+
+  const filteredMovies = useMemo(() => {
+    const query = deferredSearch.trim().toLowerCase();
+    if (!query) {
+      return movies;
+    }
+
+    return movies.filter((movie) => {
+      const titleMatch = movie.title.toLowerCase().includes(query);
+
+      return titleMatch;
+    });
+  }, [movies, deferredSearch]);
 
   const loadMovies = useCallback(async () => {
     try {
@@ -21,6 +47,7 @@ const MoviesPage = () => {
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Failed to load movies";
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -78,20 +105,45 @@ const MoviesPage = () => {
     );
   }
 
+  const hasActiveSearch = searchTerm.trim().length > 0;
+
   return (
     <section className="space-y-6 w-full max-w-6xl mx-auto">
-      <header className="space-y-2 self-start">
-        <p className="text-sm uppercase tracking-wide text-muted-foreground">
-          Browse the catalogue
-        </p>
-        <h2 className="text-2xl font-semibold text-foreground">Movies</h2>
+      <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div className="space-y-2 self-start">
+          <p className="text-sm uppercase tracking-wide text-muted-foreground">
+            Browse the catalogue
+          </p>
+          <h2 className="text-2xl font-semibold text-foreground">Movies</h2>
+        </div>
+
+        <div className="md:w-80">
+          <Input
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+            placeholder="Search by title..."
+            aria-label="Search movies"
+          />
+        </div>
       </header>
 
-      <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-        {movies.map((movie) => (
-          <MovieCard key={movie.imdbId} movie={movie} />
-        ))}
-      </div>
+      {hasActiveSearch && filteredMovies.length === 0 ? (
+        <div className="rounded-md border border-border bg-card p-6 text-center text-sm text-muted-foreground">
+          No movies match “{searchTerm}”. Try a different title or genre.
+        </div>
+      ) : (
+        <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+          {filteredMovies.map((movie) => (
+            <MovieCard
+              key={movie.imdbId}
+              movie={movie}
+              onDelete={(id) =>
+                setMovies((current) => current.filter((m) => m.imdbId !== id))
+              }
+            />
+          ))}
+        </div>
+      )}
     </section>
   );
 };
