@@ -214,5 +214,27 @@
     "admin_review": "A mind-bending masterpiece that challenges reality and perception.",
     "ranking": { "ranking_value": 10, "ranking_name": "Masterpiece" },
     "runtime": 148
+  },
+  {
+    "imdb_id": "tt0133093",
+    "title": "The Matrix",
+    "poster_path": "https://image.tmdb.org/t/p/w300/f89U3ADr1oiB1s9GkdPOEpXUk5H.jpg",
+    "youtube_id": "m8e-FF8MsqU",
+    "genre": [
+      {
+        "genre_id": 6,
+        "genre_name": "Sci-Fi"
+      },
+      {
+        "genre_id": 7,
+        "genre_name": "Action"
+      }
+    ],
+    "admin_review": "A revolutionary sci-fi film with groundbreaking action and storytelling.",
+    "ranking": {
+      "ranking_value": 1,
+      "ranking_name": "Excellent"
+    },
+    "runtime": 136
   }
 ]
