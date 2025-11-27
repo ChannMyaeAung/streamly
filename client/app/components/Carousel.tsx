@@ -9,12 +9,14 @@ import { useEffect, useState } from "react";
 const Carousel = () => {
   const [movies, setMovies] = useState<Movie[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
 
     const loadMovies = async () => {
       setError(null);
+      setLoading(true);
       try {
         const data = await api.getMovies();
         if (!cancelled) {
@@ -26,13 +28,24 @@ const Carousel = () => {
             err instanceof Error ? err.message : "Failed to load movies";
           setError(message);
         }
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     };
 
-    void loadMovies();
+    const triggerLoad = () => {
+      if (!cancelled) void loadMovies();
+    };
+
+    if (document.readyState === "complete") {
+      triggerLoad();
+    } else {
+      window.addEventListener("load", triggerLoad);
+    }
 
     return () => {
       cancelled = true;
+      window.removeEventListener("load", triggerLoad);
     };
   }, []);
 
@@ -40,7 +53,18 @@ const Carousel = () => {
   const firstRow = movies.slice(0, splitIndex);
   const secondRow = movies.slice(splitIndex);
 
-  console.log(movies);
+  if (loading) {
+    return (
+      <div className="mt-6 grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div
+            key={index}
+            className="h-80 w-full animate-pulse rounded-xl border border-border bg-muted/40"
+          />
+        ))}
+      </div>
+    );
+  }
 
   const MovieCard = ({
     posterPath,
