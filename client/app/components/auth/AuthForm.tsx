@@ -120,6 +120,7 @@ const AuthForm = ({ mode }: AuthFormProps) => {
         setUser(user);
         setMessage("Logged in successfully");
       } else {
+        // If user is registering
         if (!selectedGenres.length) {
           throw new Error("Select at least one favourite genre");
         }

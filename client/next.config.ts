@@ -1,7 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  experimental: {
+    // Allow importing demo data that lives in the shared seed-data folder.
+    externalDir: true,
+  },
   images: {
     remotePatterns: [
       {

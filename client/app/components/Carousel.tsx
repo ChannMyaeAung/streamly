@@ -1,26 +1,32 @@
+"use client";
+
 import { Marquee } from "@/components/ui/marquee";
 import { api } from "@/lib/api";
+import { getLocalMovies } from "@/lib/local-movies";
 import { Movie } from "@/lib/type";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 const Carousel = () => {
-  const [movies, setMovies] = useState<Movie[]>([]);
+  const fallbackMovies = useMemo(() => getLocalMovies(12), []);
+  const [movies, setMovies] = useState<Movie[]>(fallbackMovies);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [isFetching, setIsFetching] = useState(false);
+  const [hasRemoteData, setHasRemoteData] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
 
     const loadMovies = async () => {
-      setError(null);
-      setLoading(true);
+      setIsFetching(true);
       try {
         const data = await api.getMovies();
         if (!cancelled) {
           setMovies(data);
+          setHasRemoteData(true);
+          setError(null);
         }
       } catch (err) {
         if (!cancelled) {
@@ -29,42 +35,19 @@ const Carousel = () => {
           setError(message);
         }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setIsFetching(false);
       }
     };
 
-    const triggerLoad = () => {
-      if (!cancelled) void loadMovies();
-    };
-
-    if (document.readyState === "complete") {
-      triggerLoad();
-    } else {
-      window.addEventListener("load", triggerLoad);
-    }
+    void loadMovies();
 
     return () => {
       cancelled = true;
-      window.removeEventListener("load", triggerLoad);
     };
   }, []);
-
   const splitIndex = Math.ceil(movies.length / 2);
   const firstRow = movies.slice(0, splitIndex);
   const secondRow = movies.slice(splitIndex);
-
-  if (loading) {
-    return (
-      <div className="mt-6 grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, index) => (
-          <div
-            key={index}
-            className="h-80 w-full animate-pulse rounded-xl border border-border bg-muted/40"
-          />
-        ))}
-      </div>
-    );
-  }
 
   const MovieCard = ({
     posterPath,
@@ -102,40 +85,63 @@ const Carousel = () => {
     </figure>
   );
 
-  if (error) {
-    return <p className="mt-6 text-sm text-destructive">{error}</p>;
-  }
-
-  if (movies.length === 0) {
-    return (
-      <p className="mt-6 text-sm text-muted-foreground">
-        No movies carousel available.
-      </p>
-    );
-  }
+  const hasMovies = movies.length > 0;
 
   return (
     <div className="relative flex w-full flex-col items-center justify-center overflow-hidden mt-6">
-      <Marquee className="[--duration:40s]">
-        {firstRow.map((movie) => (
-          <MovieCard
-            key={movie.imdbId}
-            posterPath={movie.posterPath}
-            imdbId={movie.imdbId}
-          />
-        ))}
-      </Marquee>
-      {secondRow.length > 0 && (
-        <Marquee reverse className="[--duration:40s]">
-          {secondRow.map((movie) => (
-            <MovieCard
-              key={movie.imdbId}
-              posterPath={movie.posterPath}
-              imdbId={movie.imdbId}
-            />
-          ))}
-        </Marquee>
+      <div className="mb-4 flex flex-wrap items-center gap-2 text-xs">
+        <span
+          className={`rounded-full px-2 py-1 font-medium ${
+            hasRemoteData
+              ? "bg-emerald-500/15 text-emerald-300"
+              : "bg-amber-400/15 text-amber-300"
+          }`}
+        >
+          {hasRemoteData ? "Live posters" : "Demo posters"}
+        </span>
+        {isFetching && (
+          <span className="text-muted-foreground animate-pulse">
+            Syncing with Render…
+          </span>
+        )}
+        {error && (
+          <span className="text-destructive/80">
+            {error}. Showing instant demo art instead.
+          </span>
+        )}
+      </div>
+
+      {!hasMovies && (
+        <p className="text-sm text-muted-foreground">
+          No demo posters available yet.
+        </p>
       )}
+
+      {hasMovies && (
+        <>
+          <Marquee className="[--duration:40s]">
+            {firstRow.map((movie) => (
+              <MovieCard
+                key={movie.imdbId}
+                posterPath={movie.posterPath}
+                imdbId={movie.imdbId}
+              />
+            ))}
+          </Marquee>
+          {secondRow.length > 0 && (
+            <Marquee reverse className="[--duration:40s]">
+              {secondRow.map((movie) => (
+                <MovieCard
+                  key={movie.imdbId}
+                  posterPath={movie.posterPath}
+                  imdbId={movie.imdbId}
+                />
+              ))}
+            </Marquee>
+          )}
+        </>
+      )}
+
       <div className="pointer-events-none absolute inset-y-0 left-0 w-1/4 bg-linear-to-r from-background" />
       <div className="pointer-events-none absolute inset-y-0 right-0 w-1/4 bg-linear-to-l from-background" />
     </div>

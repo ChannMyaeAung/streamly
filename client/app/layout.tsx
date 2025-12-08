@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ToastContainer } from "react-toastify";
 import Navbar from "./components/Navbar";
+import StickyBannerPage from "./components/StickyBanner";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -39,6 +40,7 @@ export default function RootLayout({
         >
           <AuthProvider>
             <main className="w-full mb-6">
+              <StickyBannerPage />
               <Navbar />
               <div className="md:px-8 md:py-4 px-4">{children}</div>
             </main>
