@@ -36,8 +36,6 @@ yarn-error.log*
 # seed-data
 /seed-data/
 
-# local data file
-/lib/local-movies-data.ts
 
 # vercel
 .vercel
