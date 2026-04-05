@@ -1,0 +1,24 @@
+# Environment variables
+.env
+*.env
+
+# Compiled binaries
+app
+bin/
+*.exe
+*.dll
+*.out
+
+# Test cache and coverage
+*.test
+*.prof
+coverage.out
+coverage.html
+
+# Go workspace
+go.work
+go.work.sum
+
+# OS files
+.DS_Store
+Thumbs.db
