@@ -113,7 +113,10 @@ const AddMovie = () => {
   const [requestSubmitting, setRequestSubmitting] = useState(false);
   const [requestFeedback, setRequestFeedback] = useState<string | null>(null);
 
-  const isAdmin = useMemo(() => user?.role === "ADMIN", [user?.role]);
+  const isAdmin = useMemo(
+    () => user?.role === "ADMIN" || user?.role === "DEMO_ADMIN",
+    [user?.role]
+  );
 
   const handleAdminInputChange = (
     event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>

@@ -93,10 +93,11 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
 
   if (!response.ok) {
+    // Go/Gin returns { "error": "..." }; other APIs may use { "message": "..." }
     const message =
       typeof payload === "string"
         ? payload || response.statusText
-        : payload?.message ?? "Request failed";
+        : payload?.error ?? payload?.message ?? response.statusText ?? "Request failed";
     const error: ApiError = new Error(message);
     error.status = response.status;
     error.payload = payload;
@@ -282,6 +283,18 @@ export const api = {
     moviesCache = null;
     recommendedCache.clear();
     recommendedPromises.clear();
+  },
+
+  // Authenticate as a pre-seeded demo account ("admin" or "user") without a password.
+  async demoLogin(type: "admin" | "user"): Promise<User> {
+    const user = await request<User>("/demo-login", {
+      method: "POST",
+      body: JSON.stringify({ type }),
+    });
+    moviesCache = null;
+    recommendedCache.clear();
+    recommendedPromises.clear();
+    return user;
   },
 
   // Authenticate a user and return the profile details supplied by the API.

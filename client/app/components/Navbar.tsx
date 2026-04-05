@@ -32,13 +32,15 @@ const Navbar = () => {
     await logout();
   }, [logout]);
 
+  const isAdmin = user?.role === "ADMIN" || user?.role === "DEMO_ADMIN";
+
   const navItems = useMemo(() => {
     const items = [...baseNavItems];
-    if (user?.role === "ADMIN") {
+    if (isAdmin) {
       items.push({ name: "Update Review", href: "/update-review" });
     }
     return items;
-  }, [user?.role]);
+  }, [isAdmin]);
 
   return (
     <nav className="flex items-center justify-between p-4 md:px-8 md:py-4">
@@ -101,7 +103,7 @@ const Navbar = () => {
                 </span>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              {user.role === "ADMIN" && (
+              {isAdmin && (
                 <DropdownMenuItem>
                   <Link href={"/addmovie"} className="flex items-center gap-1">
                     <PlusIcon className="h-[1.2rem] w-[1.2rem] mr-2" />
@@ -122,7 +124,7 @@ const Navbar = () => {
                 <Settings className="h-[1.2rem] w-[1.2rem] mr-2" />
                 Settings
               </DropdownMenuItem>
-              {user.role === "ADMIN" && (
+              {isAdmin && (
                 <DropdownMenuItem>
                   <Link
                     href="/update-review"

@@ -49,14 +49,14 @@ const RecommendedMovies = () => {
           setError(
             refreshErr instanceof Error
               ? (refreshErr as StatusError)
-              : new Error("Unable to load recommended movies")
+              : new Error("Unable to load recommended movies"),
           );
         }
       } else {
         setError(
           err instanceof Error
             ? (err as StatusError)
-            : new Error("Unable to load recommended movies")
+            : new Error("Unable to load recommended movies"),
         );
       }
     } finally {
@@ -70,7 +70,7 @@ const RecommendedMovies = () => {
     if (!user) {
       setMovies([]);
       const unauth = new Error(
-        "Sign in to see personalised recommendations."
+        "Sign in to see personalised recommendations.",
       ) as StatusError;
       unauth.status = 401;
       setError(unauth);
@@ -127,11 +127,11 @@ const RecommendedMovies = () => {
 
       {/* Prompt unauthenticated visitors to sign in when recommendations require auth. */}
       {!loading && error && status === 401 && !user && (
-        <div className="space-y-4 text-start">
-          <p className="text-sm text-muted-foreground">
+        <div className="space-y-4 text-start w-full">
+          <p className="text-sm text-muted-foreground md:text-center">
             Sign in to see personalised recommendations.
           </p>
-          <div className="flex justify-start gap-3">
+          <div className="flex justify-start md:justify-center gap-3">
             <LoginPage minHeight={false} />
           </div>
         </div>

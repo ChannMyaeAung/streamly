@@ -102,8 +102,22 @@ const AuthForm = ({ mode }: AuthFormProps) => {
       form.favouriteGenreIds
         .map((id) => genres.find((genre) => genre.genre_id === id))
         .filter((genre): genre is Genre => Boolean(genre)),
-    [form.favouriteGenreIds, genres]
+    [form.favouriteGenreIds, genres],
   );
+
+  const handleDemoLogin = async (type: "admin" | "user") => {
+    setLoading(true);
+    setMessage(null);
+    try {
+      const user = await api.demoLogin(type);
+      setUser(user);
+      router.push("/");
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Demo login failed.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -224,7 +238,7 @@ const AuthForm = ({ mode }: AuthFormProps) => {
               <div className="grid gap-2 sm:grid-cols-2">
                 {genres.map((genre) => {
                   const checked = form.favouriteGenreIds.includes(
-                    genre.genre_id
+                    genre.genre_id,
                   );
                   return (
                     <label
@@ -280,9 +294,43 @@ const AuthForm = ({ mode }: AuthFormProps) => {
         {loading
           ? "Please wait..."
           : mode === "login"
-          ? "Sign in"
-          : "Create Account"}
+            ? "Sign in"
+            : "Create Account"}
       </Button>
+
+      {mode === "login" && (
+        <div className="space-y-3">
+          <div className="relative flex items-center">
+            <div className="flex-1 border-t border-border" />
+            <span className="mx-3 text-xs text-muted-foreground">
+              or try a demo
+            </span>
+            <div className="flex-1 border-t border-border" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={loading}
+              onClick={() => handleDemoLogin("user")}
+            >
+              Demo User
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={loading}
+              onClick={() => handleDemoLogin("admin")}
+            >
+              Demo Admin
+            </Button>
+          </div>
+          <p className="text-center text-xs text-muted-foreground">
+            Demo Admin has read-only access and destructive actions are
+            disabled.
+          </p>
+        </div>
+      )}
 
       {message && (
         <p className="rounded-md border border-muted-foreground/30 bg-muted/20 p-3 text-sm text-muted-foreground">

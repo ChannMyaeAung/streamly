@@ -17,7 +17,7 @@ const STATUS_COPY = {
   },
   ready: {
     title: "Backend is awake",
-    body: "You are talking to a live Go API—no additional wait time expected.",
+    body: "You are talking to a live Go API, no additional wait time expected.",
   },
   error: {
     title: "Still waking up",
@@ -48,7 +48,7 @@ const StickyBannerPage = () => {
       <StickyBanner
         className={cn(
           "bg-linear-to-b flex-col shadow-lg shadow-black/20",
-          gradient
+          gradient,
         )}
         hideOnScroll={status === "ready"}
       >

@@ -56,6 +56,58 @@
     ]
   },
   {
+    "user_id": "demo0000000000000000admin",
+    "first_name": "Demo",
+    "last_name": "Admin",
+    "email": "demo-admin@streamly.dev",
+    "password": "$2b$10$qKp4WRVNCDPDFx3ORay1AeOrYFpSJqBYIQf7DoHUDUK7vR5bebLRC",
+    "role": "DEMO_ADMIN",
+    "created_at": {
+      "$date": "2026-01-01T00:00:00.000Z"
+    },
+    "updated_at": {
+      "$date": "2026-01-01T00:00:00.000Z"
+    },
+    "token": "",
+    "refresh_token": "",
+    "favourite_genres": [
+      {
+        "genre_id": 1,
+        "genre_name": "Comedy"
+      },
+      {
+        "genre_id": 5,
+        "genre_name": "Thriller"
+      }
+    ]
+  },
+  {
+    "user_id": "demo00000000000000000user",
+    "first_name": "Demo",
+    "last_name": "User",
+    "email": "demo-user@streamly.dev",
+    "password": "$2b$10$lbWA.V4VyNLTo4m6U4hffuC7T9Tak/gx84l2jURf9H5V7GLqyg4u6",
+    "role": "USER",
+    "created_at": {
+      "$date": "2026-01-01T00:00:00.000Z"
+    },
+    "updated_at": {
+      "$date": "2026-01-01T00:00:00.000Z"
+    },
+    "token": "",
+    "refresh_token": "",
+    "favourite_genres": [
+      {
+        "genre_id": 6,
+        "genre_name": "Sci-fi"
+      },
+      {
+        "genre_id": 8,
+        "genre_name": "Mystery"
+      }
+    ]
+  },
+  {
     "user_id": "68512bc5a29d3bfe81637e3f",
     "first_name": "Ben",
     "last_name": "Madison",

@@ -13,7 +13,7 @@ type User struct {
 	LastName        string        `json:"last_name" bson:"last_name" validate:"required,min=2,max=100"`
 	Email           string        `json:"email" bson:"email" validate:"required,email"`
 	Password        string        `json:"password" bson:"password" validate:"required,min=6"`
-	Role            string        `json:"role" bson:"role" validate:"required,oneof=ADMIN USER"`
+	Role            string        `json:"role" bson:"role" validate:"required,oneof=ADMIN USER DEMO_ADMIN"`
 	CreatedAt       time.Time     `json:"created_at" bson:"created_at"`
 	UpdatedAt       time.Time     `json:"updated_at" bson:"updated_at"`
 	Token           string        `json:"token" bson:"token"`

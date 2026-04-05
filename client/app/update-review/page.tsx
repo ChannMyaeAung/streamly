@@ -16,6 +16,7 @@ import { Movie } from "@/lib/type";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { toast } from "react-toastify";
 
 const AdminReviewPage = () => {
   const router = useRouter();
@@ -26,6 +27,7 @@ const AdminReviewPage = () => {
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [message, setMessage] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const isDemoAdmin = user?.role === "DEMO_ADMIN";
 
   useEffect(() => {
     let ignore = false;
@@ -52,7 +54,7 @@ const AdminReviewPage = () => {
   }, []);
 
   useEffect(() => {
-    if (!authLoading && user && user.role !== "ADMIN") {
+    if (!authLoading && user && user.role !== "ADMIN" && user.role !== "DEMO_ADMIN") {
       router.push("/");
     }
   }, [authLoading, user, router]);
@@ -61,6 +63,11 @@ const AdminReviewPage = () => {
     e.preventDefault();
     if (!selectedImdbId || !review.trim()) {
       setMessage("Pick a movie and write a review first.");
+      return;
+    }
+
+    if (isDemoAdmin) {
+      toast.warn("Review updates are disabled in demo mode.");
       return;
     }
 
@@ -78,7 +85,7 @@ const AdminReviewPage = () => {
     } catch (err) {
       const error =
         err instanceof Error ? err.message : "Unable to update the review.";
-      setMessage(error);
+      toast.error(error);
     } finally {
       setSubmitting(false);
     }
@@ -93,7 +100,7 @@ const AdminReviewPage = () => {
     );
   }
 
-  if (user.role !== "ADMIN") {
+  if (user.role !== "ADMIN" && user.role !== "DEMO_ADMIN") {
     return null;
   }
 
@@ -150,7 +157,12 @@ const AdminReviewPage = () => {
           />
         </div>
 
-        <RippleButton rippleColor="#ADD8E6" type="submit" disabled={submitting}>
+        {isDemoAdmin && (
+          <p className="rounded-md border border-yellow-500/40 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-600 dark:text-yellow-400">
+            You are in demo mode meaning submitting reviews is disabled.
+          </p>
+        )}
+        <RippleButton rippleColor="#ADD8E6" type="submit" disabled={submitting || isDemoAdmin}>
           {submitting ? "Submitting..." : "Submit Review"}
         </RippleButton>
 

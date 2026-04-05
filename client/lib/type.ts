@@ -53,7 +53,7 @@ export interface User {
   first_name: string;
   last_name: string;
   email: string;
-  role: "USER" | "ADMIN";
+  role: "USER" | "ADMIN" | "DEMO_ADMIN";
   token?: string;
   refresh_token?: string;
   favourite_genres: Genre[];

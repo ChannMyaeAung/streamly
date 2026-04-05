@@ -80,6 +80,20 @@ func GetMovie(client *mongo.Client) gin.HandlerFunc {
 
 func AddMovie(client *mongo.Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		role, err := utils.GetRoleFromContext(c)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Role not found in context"})
+			return
+		}
+		if role == "DEMO_ADMIN" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Adding movies is disabled in demo mode"})
+			return
+		}
+		if role != "ADMIN" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Only admins can add movies"})
+			return
+		}
+
 		ctx, cancel := context.WithTimeout(c, 100*time.Second)
 		defer cancel()
 
@@ -121,6 +135,10 @@ func AdminReviewUpdate(client *mongo.Client) gin.HandlerFunc {
 
 		if role != "ADMIN" {
 			c.JSON(http.StatusForbidden, gin.H{"error": "Only admins can update reviews"})
+			return
+		}
+		if role == "DEMO_ADMIN" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Review updates are disabled in demo mode"})
 			return
 		}
 
@@ -430,8 +448,12 @@ func DeleteMovie(client *mongo.Client) gin.HandlerFunc {
 			return
 		}
 
-		if role != "ADMIN" {
+		if role != "ADMIN" && role != "DEMO_ADMIN" {
 			c.JSON(http.StatusForbidden, gin.H{"error": "Only admins can delete movies."})
+			return
+		}
+		if role == "DEMO_ADMIN" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Deleting movies is disabled in demo mode"})
 			return
 		}
 

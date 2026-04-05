@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/ChannMyaeAung/streamly/server/database"
@@ -197,6 +198,88 @@ func LogoutHandler(client *mongo.Client) gin.HandlerFunc {
 		})
 
 		c.JSON(http.StatusOK, gin.H{"message": "Successfully logged out"})
+	}
+}
+
+// DemoLogin issues tokens for a pre-seeded demo account without requiring a password.
+// It resolves the account by looking up the email stored in DEMO_ADMIN_EMAIL or DEMO_USER_EMAIL
+// based on the requested demo type ("admin" or "user").
+func DemoLogin(client *mongo.Client) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req struct {
+			Type string `json:"type"`
+		}
+
+		if err := c.ShouldBindJSON(&req); err != nil || (req.Type != "admin" && req.Type != "user") {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "type must be \"admin\" or \"user\""})
+			return
+		}
+
+		var email string
+		if req.Type == "admin" {
+			email = os.Getenv("DEMO_ADMIN_EMAIL")
+		} else {
+			email = os.Getenv("DEMO_USER_EMAIL")
+		}
+
+		if email == "" {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Demo accounts are not configured on this server"})
+			return
+		}
+
+		ctx, cancel := context.WithTimeout(c, 100*time.Second)
+		defer cancel()
+
+		var userCollection *mongo.Collection = database.OpenCollection("users", client)
+
+		var foundUser models.User
+		if err := userCollection.FindOne(ctx, bson.M{"email": email}).Decode(&foundUser); err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Demo account not found. Ensure the database has been seeded."})
+			return
+		}
+
+		token, refreshToken, err := utils.GenerateAllTokens(foundUser.Email, foundUser.FirstName, foundUser.LastName, foundUser.Role, foundUser.UserID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error while generating tokens"})
+			return
+		}
+
+		if err = utils.UpdateAllTokens(foundUser.UserID, token, refreshToken, client); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error while updating tokens"})
+			return
+		}
+
+		http.SetCookie(c.Writer, &http.Cookie{
+			Name:     "access_token",
+			Value:    token,
+			Path:     "/",
+			Domain:   "localhost",
+			MaxAge:   86400,
+			Secure:   true,
+			HttpOnly: true,
+			SameSite: http.SameSiteNoneMode,
+		})
+		http.SetCookie(c.Writer, &http.Cookie{
+			Name:     "refresh_token",
+			Value:    refreshToken,
+			Path:     "/",
+			Domain:   "localhost",
+			MaxAge:   604800,
+			Secure:   true,
+			HttpOnly: true,
+			SameSite: http.SameSiteNoneMode,
+		})
+
+		c.JSON(http.StatusOK, models.UserResponse{
+			UserID:          foundUser.UserID,
+			FirstName:       foundUser.FirstName,
+			LastName:        foundUser.LastName,
+			Email:           foundUser.Email,
+			Role:            foundUser.Role,
+			Token:           token,
+			RefreshToken:    refreshToken,
+			FavouriteGenres: foundUser.FavouriteGenres,
+		})
 	}
 }
 
